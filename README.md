@@ -10,6 +10,11 @@ LogSearch 从 Chrome DevTools 中提取前端请求的 Request ID，并并发查
 - `logsearch-cli`：命令行查询客户端。
 - `extension`：Chrome Manifest V3 DevTools 扩展。
 
+Kubernetes 清单：
+
+- `deploy/logsearch-dev.yaml`：开发环境，NodePort，不鉴权。
+- `deploy/logsearch-auth-ingress.yaml`：Bearer Token 鉴权，ClusterIP 和 Ingress。
+
 ## 本地运行
 
 复制并调整 `configs/agent.yaml` 中的日志根目录，然后运行：
@@ -38,3 +43,46 @@ make generate
 ```
 
 生成文件已提交，普通构建不需要重新生成。
+
+## Linux 二进制
+
+同时构建 Linux amd64 和 arm64 的 Agent、CLI：
+
+```bash
+make build-linux
+```
+
+产物位于 `dist/`。也可以分别执行：
+
+```bash
+make build-linux-amd64
+make build-linux-arm64
+```
+
+## 发布
+
+提交全部改动后，执行下面一条命令创建并推送版本标签：
+
+```bash
+make tag VERSION=v0.1.0
+```
+
+`v*` 标签会触发 GitHub Actions：
+
+- 编译 Linux、macOS 和 Windows 的 Agent 与 CLI，并附加到 GitHub Release。
+- 生成所有二进制的 `checksums.txt`。
+- 构建并推送 `linux/amd64`、`linux/arm64` 多平台镜像。
+
+镜像发布到当前仓库的 GitHub Container Registry：
+
+```text
+ghcr.io/<owner>/<repository>:v0.1.0
+ghcr.io/<owner>/<repository>:0.1.0
+ghcr.io/<owner>/<repository>:latest
+```
+
+拉取指定版本：
+
+```bash
+docker pull ghcr.io/<owner>/<repository>:v0.1.0
+```

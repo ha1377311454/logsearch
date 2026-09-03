@@ -1,0 +1,45 @@
+package main
+
+import (
+	"flag"
+	"log"
+	"net/http"
+	"time"
+
+	"logsearch/internal/config"
+	"logsearch/internal/search"
+	"logsearch/internal/server"
+)
+
+func main() {
+	configPath := flag.String("config", "configs/agent.yaml", "agent configuration file")
+	flag.Parse()
+
+	cfg, err := config.Load(*configPath)
+	if err != nil {
+		log.Fatalf("load config: %v", err)
+	}
+	searchService, err := search.New(search.Options{
+		Roots:             cfg.Search.Roots,
+		AllowedExtensions: cfg.Search.AllowedExtensions,
+		PodNameContains:   cfg.Search.PodNameContains,
+		MaxFiles:          cfg.Search.MaxFilesPerRequest,
+		MaxResults:        cfg.Search.HardMaxResults,
+		MaxResponseBytes:  cfg.Search.MaxResponseBytes,
+		MaxLineBytes:      cfg.Search.MaxLineBytes,
+	})
+	if err != nil {
+		log.Fatalf("initialize search service: %v", err)
+	}
+
+	httpServer := &http.Server{
+		Addr:              cfg.Server.Listen,
+		Handler:           server.Handler(cfg, server.New(cfg, searchService)),
+		ReadHeaderTimeout: 5 * time.Second,
+		IdleTimeout:       60 * time.Second,
+	}
+	log.Printf("logsearch agent listening on %s node=%s roots=%d", cfg.Server.Listen, cfg.Server.NodeName, len(cfg.Search.Roots))
+	if err := httpServer.ListenAndServe(); err != nil && err != http.ErrServerClosed {
+		log.Fatalf("serve: %v", err)
+	}
+}

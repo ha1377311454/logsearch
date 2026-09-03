@@ -1,0 +1,114 @@
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: logsearch
+---
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: logsearch-agent
+  namespace: logsearch
+data:
+  agent.yaml: |
+    server:
+      listen: ":9000"
+      node_name: ""
+    search:
+      roots: ["/host/var/log/pods"]
+      allowed_extensions: [".log"]
+      # Agent 只读取 Pod 名包含下列任一关键词的日志；空数组表示不过滤。
+      pod_name_contains: []
+      max_concurrent_searches: 4
+      max_files_per_request: 200
+      default_max_results: 500
+      hard_max_results: 5000
+      default_timeout: 15s
+      hard_timeout: 60s
+      max_response_bytes: 20971520
+      max_line_bytes: 1048576
+    security:
+      # 开发环境不启用鉴权。
+      token: ""
+      allowed_origins: ["*"]
+---
+apiVersion: apps/v1
+kind: DaemonSet
+metadata:
+  name: logsearch-agent
+  namespace: logsearch
+spec:
+  selector:
+    matchLabels:
+      app: logsearch-agent
+  template:
+    metadata:
+      labels:
+        app: logsearch-agent
+    spec:
+      automountServiceAccountToken: false
+      containers:
+        - name: agent
+          image: ghcr.io/OWNER/REPOSITORY:v0.1.0
+          args: ["-config", "/etc/logsearch/agent.yaml"]
+          env:
+            - name: NODE_NAME
+              valueFrom:
+                fieldRef:
+                  fieldPath: spec.nodeName
+          ports:
+            - name: http
+              containerPort: 9000
+              protocol: TCP
+          readinessProbe:
+            httpGet:
+              path: /healthz
+              port: http
+          livenessProbe:
+            httpGet:
+              path: /healthz
+              port: http
+          resources:
+            requests:
+              cpu: 20m
+              memory: 32Mi
+            limits:
+              cpu: "1"
+              memory: 256Mi
+          securityContext:
+            allowPrivilegeEscalation: false
+            capabilities:
+              drop: ["ALL"]
+            readOnlyRootFilesystem: true
+            runAsNonRoot: true
+            runAsUser: 65532
+          volumeMounts:
+            - name: config
+              mountPath: /etc/logsearch
+              readOnly: true
+            - name: host-var-log
+              mountPath: /host/var/log
+              readOnly: true
+      volumes:
+        - name: config
+          configMap:
+            name: logsearch-agent
+        - name: host-var-log
+          hostPath:
+            path: /var/log
+            type: Directory
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: logsearch-agent
+  namespace: logsearch
+spec:
+  type: NodePort
+  externalTrafficPolicy: Local
+  selector:
+    app: logsearch-agent
+  ports:
+    - name: http
+      port: 9000
+      targetPort: http
+      nodePort: 30900

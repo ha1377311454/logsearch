@@ -1,0 +1,27 @@
+server:
+  listen: ":9000"
+  # Kubernetes 中由 NODE_NAME 环境变量覆盖；本地为空时使用主机名。
+  node_name: ""
+
+search:
+  roots:
+    - /host/var/log/pods
+  allowed_extensions:
+    - .log
+  # Agent 端 Pod 名模糊过滤，多个值是 OR 关系；留空表示允许所有 Pod。
+  # 例如 order-api 可匹配 order-api-7d8f9c6b5-x2abc。
+  pod_name_contains: []
+  max_concurrent_searches: 4
+  max_files_per_request: 200
+  default_max_results: 500
+  hard_max_results: 5000
+  default_timeout: 15s
+  hard_timeout: 60s
+  max_response_bytes: 20971520
+  max_line_bytes: 1048576
+
+security:
+  # 推荐通过 LOGSEARCH_TOKEN 环境变量注入，不要在文件中保存生产 Token。
+  token: ""
+  allowed_origins:
+    - "*"

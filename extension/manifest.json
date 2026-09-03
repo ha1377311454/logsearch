@@ -1,0 +1,11 @@
+{
+  "manifest_version": 3,
+  "name": "LogSearch DevTools",
+  "version": "0.1.0",
+  "description": "Extract a request ID from Network requests and search Kubernetes node logs.",
+  "permissions": ["storage"],
+  "host_permissions": ["http://*/*", "https://*/*"],
+  "background": { "service_worker": "service-worker.js", "type": "module" },
+  "devtools_page": "devtools.html",
+  "options_page": "options/index.html"
+}

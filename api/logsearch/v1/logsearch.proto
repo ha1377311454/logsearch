@@ -1,0 +1,85 @@
+syntax = "proto3";
+
+package logsearch.v1;
+
+option go_package = "logsearch/api/logsearch/v1;logsearchv1";
+
+service LogSearchService {
+  rpc Health(HealthRequest) returns (HealthResponse);
+  rpc ListLogFiles(ListLogFilesRequest) returns (ListLogFilesResponse);
+  rpc Search(SearchRequest) returns (SearchResponse);
+}
+
+message HealthRequest {}
+
+message HealthResponse {
+  string status = 1;
+  string node_name = 2;
+}
+
+enum KeywordMode {
+  KEYWORD_MODE_UNSPECIFIED = 0;
+  KEYWORD_MODE_ALL = 1;
+  KEYWORD_MODE_ANY = 2;
+}
+
+message ListLogFilesRequest {
+  repeated string namespaces = 1;
+  repeated string pods = 2;
+  repeated string containers = 3;
+  repeated string file_patterns = 4;
+  int32 limit = 5;
+}
+
+message LogFile {
+  string namespace = 1;
+  string pod = 2;
+  string container = 3;
+  string path = 4;
+  int64 size = 5;
+  string modified_at = 6;
+}
+
+message ListLogFilesResponse {
+  repeated LogFile files = 1;
+  bool truncated = 2;
+}
+
+message SearchRequest {
+  repeated string keywords = 1;
+  KeywordMode keyword_mode = 2;
+  bool case_sensitive = 3;
+  repeated string namespaces = 4;
+  repeated string pods = 5;
+  repeated string containers = 6;
+  repeated string file_patterns = 7;
+  int32 before_context = 8;
+  int32 after_context = 9;
+  int32 max_results = 10;
+  int64 max_bytes = 11;
+  int32 timeout_seconds = 12;
+  string start_time = 13;
+  string end_time = 14;
+}
+
+message LogMatch {
+  string node_name = 1;
+  string namespace = 2;
+  string pod = 3;
+  string container = 4;
+  string file = 5;
+  int64 line_number = 6;
+  string timestamp = 7;
+  string text = 8;
+  repeated string before = 9;
+  repeated string after = 10;
+}
+
+message SearchResponse {
+  repeated LogMatch matches = 1;
+  int32 scanned_files = 2;
+  int64 scanned_bytes = 3;
+  bool truncated = 4;
+  string truncation_reason = 5;
+  int64 elapsed_ms = 6;
+}
