@@ -53,6 +53,8 @@ func (s *Service) ListLogFiles(ctx context.Context, req *connect.Request[logsear
 			Path:       file.Path,
 			Size:       file.Size,
 			ModifiedAt: file.Modified.Format(time.RFC3339Nano),
+			SourceType: file.SourceType,
+			SourceRule: file.Rule,
 		})
 	}
 	return connect.NewResponse(response), nil
@@ -124,6 +126,8 @@ func (s *Service) Search(ctx context.Context, req *connect.Request[logsearchv1.S
 			Text:       match.Text,
 			Before:     match.Before,
 			After:      match.After,
+			SourceType: match.SourceType,
+			SourceRule: match.Rule,
 		})
 	}
 	return connect.NewResponse(response), nil

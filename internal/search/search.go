@@ -24,6 +24,8 @@ type Options struct {
 	Roots             []string
 	AllowedExtensions []string
 	PodNameContains   []string
+	ProcessLogs       []ProcessLogRule
+	ProcRoot          string
 	MaxFiles          int
 	MaxResults        int
 	MaxResponseBytes  int64
@@ -51,12 +53,15 @@ type Request struct {
 }
 
 type File struct {
-	Namespace string
-	Pod       string
-	Container string
-	Path      string
-	Size      int64
-	Modified  time.Time
+	SourceType string
+	Rule       string
+	Namespace  string
+	Pod        string
+	Container  string
+	Path       string
+	OpenPath   string
+	Size       int64
+	Modified   time.Time
 }
 
 type Match struct {
@@ -77,8 +82,9 @@ type Result struct {
 }
 
 type Service struct {
-	opts  Options
-	roots []string
+	opts         Options
+	roots        []string
+	processRules []compiledProcessRule
 }
 
 func New(opts Options) (*Service, error) {
@@ -101,7 +107,14 @@ func New(opts Options) (*Service, error) {
 		}
 		roots = append(roots, resolved)
 	}
-	return &Service{opts: opts, roots: roots}, nil
+	if opts.ProcRoot == "" {
+		opts.ProcRoot = "/proc"
+	}
+	processRules, err := compileProcessRules(opts.ProcessLogs)
+	if err != nil {
+		return nil, err
+	}
+	return &Service{opts: opts, roots: roots, processRules: processRules}, nil
 }
 
 func (s *Service) ListFiles(ctx context.Context, filter Filter, limit int) ([]File, bool, error) {
@@ -172,7 +185,6 @@ func (s *Service) Search(ctx context.Context, req Request) (Result, error) {
 
 func (s *Service) walk(ctx context.Context, filter Filter, limit int) ([]File, bool, error) {
 	files := make([]File, 0, limit)
-	truncated := false
 	for _, root := range s.roots {
 		err := filepath.WalkDir(root, func(path string, entry fs.DirEntry, walkErr error) error {
 			if walkErr != nil {
@@ -188,6 +200,8 @@ func (s *Service) walk(ctx context.Context, filter Filter, limit int) ([]File, b
 				return nil
 			}
 			meta := metadata(path)
+			meta.SourceType = "kubelet"
+			meta.OpenPath = path
 			if !containsAnyFold(meta.Pod, s.opts.PodNameContains) {
 				return nil
 			}
@@ -197,10 +211,6 @@ func (s *Service) walk(ctx context.Context, filter Filter, limit int) ([]File, b
 			info, err := entry.Info()
 			if err != nil {
 				return err
-			}
-			if len(files) >= limit {
-				truncated = true
-				return fs.SkipAll
 			}
 			meta.Size = info.Size()
 			meta.Modified = info.ModTime()
@@ -213,11 +223,17 @@ func (s *Service) walk(ctx context.Context, filter Filter, limit int) ([]File, b
 		if err != nil {
 			return nil, false, err
 		}
-		if truncated {
-			break
-		}
 	}
+	processFiles, err := s.discoverProcessFiles(ctx, filter)
+	if err != nil {
+		return nil, false, err
+	}
+	files = append(files, processFiles...)
 	sort.Slice(files, func(i, j int) bool { return files[i].Modified.After(files[j].Modified) })
+	truncated := len(files) > limit
+	if truncated {
+		files = files[:limit]
+	}
 	return files, truncated, nil
 }
 
@@ -225,7 +241,11 @@ func (s *Service) scanFile(ctx context.Context, file File, req Request, keywords
 	if maxResults <= 0 || maxBytes <= 0 {
 		return nil, 0, false, nil
 	}
-	f, err := os.Open(file.Path)
+	openPath := file.OpenPath
+	if openPath == "" {
+		openPath = file.Path
+	}
+	f, err := os.Open(openPath)
 	if err != nil {
 		return nil, 0, false, err
 	}

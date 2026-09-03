@@ -1,6 +1,11 @@
 let networkRequests = [];
 const $ = (selector) => document.querySelector(selector);
 
+// DevTools 主题可以独立于操作系统主题，优先使用当前 DevTools 的主题值。
+if (chrome.devtools?.panels?.themeName) {
+  document.documentElement.dataset.theme = chrome.devtools.panels.themeName;
+}
+
 $("#settings").addEventListener("click", () => chrome.runtime.openOptionsPage());
 $("#refresh").addEventListener("click", loadRequests);
 $("#requests").addEventListener("change", extractRequestId);
@@ -85,7 +90,7 @@ function renderMatch(match) {
   article.className = "card log-entry";
   const meta = document.createElement("div");
   meta.className = "log-meta";
-  meta.textContent = `${match.sourceNode} · ${match.namespace || "-"}/${match.pod || "-"}/${match.container || "-"} · line ${match.lineNumber}`;
+  meta.textContent = `${match.sourceNode} · ${match.sourceType || "kubelet"} · ${match.namespace || "-"}/${match.pod || "-"}/${match.container || "-"} · ${match.file || "-"} · line ${match.lineNumber}`;
   const pre = document.createElement("pre");
   const lines = [...(match.before || []), match.text, ...(match.after || [])];
   pre.textContent = lines.join("\n");

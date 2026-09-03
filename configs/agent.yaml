@@ -11,6 +11,18 @@ search:
   # Agent 端 Pod 名模糊过滤，多个值是 OR 关系；留空表示允许所有 Pod。
   # 例如 order-api 可匹配 order-api-7d8f9c6b5-x2abc。
   pod_name_contains: []
+  # 进程日志：先匹配宿主机进程及其打开文件，再扫描容器内指定目录的轮转日志。
+  process_logs:
+    - name: example-api
+      comm_regex: '^java$'
+      cmdline_regex: 'example-api'
+      include_regex: '^/var/log/example-api/example-api(?:\..+)?\.log$'
+      log_dirs:
+        - /var/log/example-api
+      file_patterns:
+        - 'example-api*.log'
+      max_files: 20
+      max_file_age: 48h
   max_concurrent_searches: 4
   max_files_per_request: 200
   default_max_results: 500

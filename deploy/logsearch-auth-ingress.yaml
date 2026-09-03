@@ -18,6 +18,15 @@ data:
       allowed_extensions: [".log"]
       # Agent 只读取 Pod 名包含下列任一关键词的日志；空数组表示不过滤。
       pod_name_contains: []
+      process_logs:
+        - name: example-api
+          comm_regex: '^java$'
+          cmdline_regex: 'example-api'
+          include_regex: '^/var/log/example-api/example-api(?:\..+)?\.log$'
+          log_dirs: ["/var/log/example-api"]
+          file_patterns: ["example-api*.log"]
+          max_files: 20
+          max_file_age: 48h
       max_concurrent_searches: 4
       max_files_per_request: 200
       default_max_results: 500
@@ -54,6 +63,8 @@ spec:
       labels:
         app: logsearch-agent
     spec:
+      # process_logs 需要看到节点上的容器进程及其 /proc/<pid>/root。
+      hostPID: true
       automountServiceAccountToken: false
       containers:
         - name: agent
@@ -89,12 +100,27 @@ spec:
               cpu: "1"
               memory: 256Mi
           securityContext:
-            allowPrivilegeEscalation: false
+            privileged: false
+            allowPrivilegeEscalation: true
             capabilities:
               drop: ["ALL"]
+              add:
+                - CHOWN
+                - DAC_OVERRIDE
+                - DAC_READ_SEARCH
+                - FOWNER
+                - FSETID
+                - SYS_RESOURCE
+                - SYS_CHROOT
+                - SYS_PTRACE
             readOnlyRootFilesystem: true
-            runAsNonRoot: true
-            runAsUser: 65532
+            runAsNonRoot: false
+            runAsUser: 0
+            # SELinux Enforcing 节点上允许非特权采集器读取 hostPath 日志。
+            seLinuxOptions:
+              type: spc_t
+            seccompProfile:
+              type: RuntimeDefault
           volumeMounts:
             - name: config
               mountPath: /etc/logsearch

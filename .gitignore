@@ -1,3 +1,4 @@
 .idea/
 dist/
 *.log
+deploy/logsearch-dev-01.yaml

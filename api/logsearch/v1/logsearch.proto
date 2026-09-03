@@ -38,6 +38,8 @@ message LogFile {
   string path = 4;
   int64 size = 5;
   string modified_at = 6;
+  string source_type = 7;
+  string source_rule = 8;
 }
 
 message ListLogFilesResponse {
@@ -73,6 +75,8 @@ message LogMatch {
   string text = 8;
   repeated string before = 9;
   repeated string after = 10;
+  string source_type = 11;
+  string source_rule = 12;
 }
 
 message SearchResponse {

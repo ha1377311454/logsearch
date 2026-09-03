@@ -47,6 +47,10 @@ Agent 不接受客户端提供的绝对路径。客户端只能给出 namespace�
 
 Agent 配置可通过 `search.pod_name_contains` 进一步限制允许读取的 Pod。该规则按 Pod 名进行不区分大小写的包含匹配，多个配置值是 OR 关系，在任何客户端过滤之前执行，因此客户端无法扩大 Agent 配置的日志范围。空数组表示不限制 Pod。
 
+除 kubelet 标准输出日志外，Agent 支持 `search.process_logs`。实现参考 `log-collector`：使用 gopsutil 枚举本节点进程，通过 `comm_regex` 和 `cmdline_regex` 进行 AND 匹配，读取进程当前打开的文件，并优先转换为 `/proc/<pid>/root/<容器内路径>`。配置 `log_dirs` 后，还会从同一容器文件系统目录中发现轮转文件。
+
+进程日志目录和文件规则完全由 Agent 配置，客户端不能传入目录。`include_regex` 约束进程已打开的文件，`file_patterns` 约束指定目录中的文件，`max_files` 按修改时间保留最新文件，`max_file_age` 排除过旧文件。
+
 Kubernetes 默认日志根目录为 `/host/var/log/pods`。文件路径通常包含 namespace、Pod UID 和容器名；Agent同时从路径及日志文件名提取元数据。
 
 ### 4.2 关键词语义
@@ -125,6 +129,7 @@ docs/                   架构、部署和使用说明
 - 能配置多个 Agent，并发查询且隔离单节点故障。
 - `ALL` 模式要求全部关键词处于同一行。
 - 返回节点、namespace、Pod、容器、文件、行号和上下文。
+- 返回 `kubelet` 或 `process` 日志来源及对应 Agent 规则名。
 - 超过限制时明确标记截断。
 - 无法通过绝对路径、`..` 或符号链接读取白名单目录之外的文件。
 - DaemonSet 能以只读方式访问 `/var/log/pods`。

@@ -242,6 +242,8 @@ type LogFile struct {
 	Path          string                 `protobuf:"bytes,4,opt,name=path,proto3" json:"path,omitempty"`
 	Size          int64                  `protobuf:"varint,5,opt,name=size,proto3" json:"size,omitempty"`
 	ModifiedAt    string                 `protobuf:"bytes,6,opt,name=modified_at,json=modifiedAt,proto3" json:"modified_at,omitempty"`
+	SourceType    string                 `protobuf:"bytes,7,opt,name=source_type,json=sourceType,proto3" json:"source_type,omitempty"`
+	SourceRule    string                 `protobuf:"bytes,8,opt,name=source_rule,json=sourceRule,proto3" json:"source_rule,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }
@@ -314,6 +316,20 @@ func (x *LogFile) GetSize() int64 {
 func (x *LogFile) GetModifiedAt() string {
 	if x != nil {
 		return x.ModifiedAt
+	}
+	return ""
+}
+
+func (x *LogFile) GetSourceType() string {
+	if x != nil {
+		return x.SourceType
+	}
+	return ""
+}
+
+func (x *LogFile) GetSourceRule() string {
+	if x != nil {
+		return x.SourceRule
 	}
 	return ""
 }
@@ -530,6 +546,8 @@ type LogMatch struct {
 	Text          string                 `protobuf:"bytes,8,opt,name=text,proto3" json:"text,omitempty"`
 	Before        []string               `protobuf:"bytes,9,rep,name=before,proto3" json:"before,omitempty"`
 	After         []string               `protobuf:"bytes,10,rep,name=after,proto3" json:"after,omitempty"`
+	SourceType    string                 `protobuf:"bytes,11,opt,name=source_type,json=sourceType,proto3" json:"source_type,omitempty"`
+	SourceRule    string                 `protobuf:"bytes,12,opt,name=source_rule,json=sourceRule,proto3" json:"source_rule,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }
@@ -634,6 +652,20 @@ func (x *LogMatch) GetAfter() []string {
 	return nil
 }
 
+func (x *LogMatch) GetSourceType() string {
+	if x != nil {
+		return x.SourceType
+	}
+	return ""
+}
+
+func (x *LogMatch) GetSourceRule() string {
+	if x != nil {
+		return x.SourceRule
+	}
+	return ""
+}
+
 type SearchResponse struct {
 	state            protoimpl.MessageState `protogen:"open.v1"`
 	Matches          []*LogMatch            `protobuf:"bytes,1,rep,name=matches,proto3" json:"matches,omitempty"`
@@ -736,7 +768,7 @@ const file_api_logsearch_v1_logsearch_proto_rawDesc = "" +
 	"containers\x18\x03 \x03(\tR\n" +
 	"containers\x12#\n" +
 	"\rfile_patterns\x18\x04 \x03(\tR\ffilePatterns\x12\x14\n" +
-	"\x05limit\x18\x05 \x01(\x05R\x05limit\"\xa0\x01\n" +
+	"\x05limit\x18\x05 \x01(\x05R\x05limit\"\xe2\x01\n" +
 	"\aLogFile\x12\x1c\n" +
 	"\tnamespace\x18\x01 \x01(\tR\tnamespace\x12\x10\n" +
 	"\x03pod\x18\x02 \x01(\tR\x03pod\x12\x1c\n" +
@@ -744,7 +776,11 @@ const file_api_logsearch_v1_logsearch_proto_rawDesc = "" +
 	"\x04path\x18\x04 \x01(\tR\x04path\x12\x12\n" +
 	"\x04size\x18\x05 \x01(\x03R\x04size\x12\x1f\n" +
 	"\vmodified_at\x18\x06 \x01(\tR\n" +
-	"modifiedAt\"a\n" +
+	"modifiedAt\x12\x1f\n" +
+	"\vsource_type\x18\a \x01(\tR\n" +
+	"sourceType\x12\x1f\n" +
+	"\vsource_rule\x18\b \x01(\tR\n" +
+	"sourceRule\"a\n" +
 	"\x14ListLogFilesResponse\x12+\n" +
 	"\x05files\x18\x01 \x03(\v2\x15.logsearch.v1.LogFileR\x05files\x12\x1c\n" +
 	"\ttruncated\x18\x02 \x01(\bR\ttruncated\"\xf6\x03\n" +
@@ -769,7 +805,7 @@ const file_api_logsearch_v1_logsearch_proto_rawDesc = "" +
 	"\x0ftimeout_seconds\x18\f \x01(\x05R\x0etimeoutSeconds\x12\x1d\n" +
 	"\n" +
 	"start_time\x18\r \x01(\tR\tstartTime\x12\x19\n" +
-	"\bend_time\x18\x0e \x01(\tR\aendTime\"\x8a\x02\n" +
+	"\bend_time\x18\x0e \x01(\tR\aendTime\"\xcc\x02\n" +
 	"\bLogMatch\x12\x1b\n" +
 	"\tnode_name\x18\x01 \x01(\tR\bnodeName\x12\x1c\n" +
 	"\tnamespace\x18\x02 \x01(\tR\tnamespace\x12\x10\n" +
@@ -782,7 +818,11 @@ const file_api_logsearch_v1_logsearch_proto_rawDesc = "" +
 	"\x04text\x18\b \x01(\tR\x04text\x12\x16\n" +
 	"\x06before\x18\t \x03(\tR\x06before\x12\x14\n" +
 	"\x05after\x18\n" +
-	" \x03(\tR\x05after\"\xf6\x01\n" +
+	" \x03(\tR\x05after\x12\x1f\n" +
+	"\vsource_type\x18\v \x01(\tR\n" +
+	"sourceType\x12\x1f\n" +
+	"\vsource_rule\x18\f \x01(\tR\n" +
+	"sourceRule\"\xf6\x01\n" +
 	"\x0eSearchResponse\x120\n" +
 	"\amatches\x18\x01 \x03(\v2\x16.logsearch.v1.LogMatchR\amatches\x12#\n" +
 	"\rscanned_files\x18\x02 \x01(\x05R\fscannedFiles\x12#\n" +

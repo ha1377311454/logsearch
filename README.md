@@ -10,6 +10,8 @@ LogSearch 从 Chrome DevTools 中提取前端请求的 Request ID，并并发查
 - `logsearch-cli`：命令行查询客户端。
 - `extension`：Chrome Manifest V3 DevTools 扩展。
 
+Agent 同时支持 kubelet `/var/log/pods` 标准输出日志，以及通过宿主机进程 `/proc/<pid>/root` 读取容器内部文件日志和轮转日志。
+
 Kubernetes 清单：
 
 - `deploy/logsearch-dev.yaml`：开发环境，NodePort，不鉴权。

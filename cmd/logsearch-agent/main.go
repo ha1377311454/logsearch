@@ -23,6 +23,7 @@ func main() {
 		Roots:             cfg.Search.Roots,
 		AllowedExtensions: cfg.Search.AllowedExtensions,
 		PodNameContains:   cfg.Search.PodNameContains,
+		ProcessLogs:       processRules(cfg.Search.ProcessLogs),
 		MaxFiles:          cfg.Search.MaxFilesPerRequest,
 		MaxResults:        cfg.Search.HardMaxResults,
 		MaxResponseBytes:  cfg.Search.MaxResponseBytes,
@@ -42,4 +43,21 @@ func main() {
 	if err := httpServer.ListenAndServe(); err != nil && err != http.ErrServerClosed {
 		log.Fatalf("serve: %v", err)
 	}
+}
+
+func processRules(configs []config.ProcessLogConfig) []search.ProcessLogRule {
+	rules := make([]search.ProcessLogRule, 0, len(configs))
+	for _, item := range configs {
+		var maxAge time.Duration
+		if item.MaxFileAge != "" {
+			maxAge, _ = time.ParseDuration(item.MaxFileAge)
+		}
+		rules = append(rules, search.ProcessLogRule{
+			Name: item.Name, CommRegex: item.CommRegex, CmdlineRegex: item.CmdlineRegex,
+			IncludeRegex: item.IncludeRegex, ExcludeRegex: item.ExcludeRegex,
+			LogDirs: item.LogDirs, FilePatterns: item.FilePatterns,
+			MaxFiles: item.MaxFiles, MaxFileAge: maxAge,
+		})
+	}
+	return rules
 }
