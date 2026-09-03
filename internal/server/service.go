@@ -107,6 +107,7 @@ func (s *Service) Search(ctx context.Context, req *connect.Request[logsearchv1.S
 		return nil, connect.NewError(connect.CodeInvalidArgument, err)
 	}
 	response := &logsearchv1.SearchResponse{
+		DiscoveredFiles:  int32(result.DiscoveredFiles),
 		ScannedFiles:     int32(result.ScannedFiles),
 		ScannedBytes:     result.ScannedBytes,
 		Truncated:        result.Truncated,

@@ -71,7 +71,7 @@ make tag VERSION=v0.1.0
 
 `v*` 标签会触发 GitHub Actions：
 
-- 编译 Linux、macOS 和 Windows 的 Agent 与 CLI，并附加到 GitHub Release。
+- 编译 Linux amd64、Linux arm64 的 Agent 与 CLI，并附加到 GitHub Release。
 - 生成所有二进制的 `checksums.txt`。
 - 构建并推送 `linux/amd64`、`linux/arm64` 多平台镜像。
 

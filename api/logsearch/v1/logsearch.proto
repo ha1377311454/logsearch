@@ -86,4 +86,5 @@ message SearchResponse {
   bool truncated = 4;
   string truncation_reason = 5;
   int64 elapsed_ms = 6;
+  int32 discovered_files = 7;
 }

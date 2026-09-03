@@ -6,6 +6,5 @@
   "permissions": ["storage"],
   "host_permissions": ["http://*/*", "https://*/*"],
   "background": { "service_worker": "service-worker.js", "type": "module" },
-  "devtools_page": "devtools.html",
-  "options_page": "options/index.html"
+  "devtools_page": "devtools.html"
 }

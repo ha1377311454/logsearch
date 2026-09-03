@@ -674,6 +674,7 @@ type SearchResponse struct {
 	Truncated        bool                   `protobuf:"varint,4,opt,name=truncated,proto3" json:"truncated,omitempty"`
 	TruncationReason string                 `protobuf:"bytes,5,opt,name=truncation_reason,json=truncationReason,proto3" json:"truncation_reason,omitempty"`
 	ElapsedMs        int64                  `protobuf:"varint,6,opt,name=elapsed_ms,json=elapsedMs,proto3" json:"elapsed_ms,omitempty"`
+	DiscoveredFiles  int32                  `protobuf:"varint,7,opt,name=discovered_files,json=discoveredFiles,proto3" json:"discovered_files,omitempty"`
 	unknownFields    protoimpl.UnknownFields
 	sizeCache        protoimpl.SizeCache
 }
@@ -750,6 +751,13 @@ func (x *SearchResponse) GetElapsedMs() int64 {
 	return 0
 }
 
+func (x *SearchResponse) GetDiscoveredFiles() int32 {
+	if x != nil {
+		return x.DiscoveredFiles
+	}
+	return 0
+}
+
 var File_api_logsearch_v1_logsearch_proto protoreflect.FileDescriptor
 
 const file_api_logsearch_v1_logsearch_proto_rawDesc = "" +
@@ -822,7 +830,7 @@ const file_api_logsearch_v1_logsearch_proto_rawDesc = "" +
 	"\vsource_type\x18\v \x01(\tR\n" +
 	"sourceType\x12\x1f\n" +
 	"\vsource_rule\x18\f \x01(\tR\n" +
-	"sourceRule\"\xf6\x01\n" +
+	"sourceRule\"\xa1\x02\n" +
 	"\x0eSearchResponse\x120\n" +
 	"\amatches\x18\x01 \x03(\v2\x16.logsearch.v1.LogMatchR\amatches\x12#\n" +
 	"\rscanned_files\x18\x02 \x01(\x05R\fscannedFiles\x12#\n" +
@@ -830,7 +838,8 @@ const file_api_logsearch_v1_logsearch_proto_rawDesc = "" +
 	"\ttruncated\x18\x04 \x01(\bR\ttruncated\x12+\n" +
 	"\x11truncation_reason\x18\x05 \x01(\tR\x10truncationReason\x12\x1d\n" +
 	"\n" +
-	"elapsed_ms\x18\x06 \x01(\x03R\telapsedMs*W\n" +
+	"elapsed_ms\x18\x06 \x01(\x03R\telapsedMs\x12)\n" +
+	"\x10discovered_files\x18\a \x01(\x05R\x0fdiscoveredFiles*W\n" +
 	"\vKeywordMode\x12\x1c\n" +
 	"\x18KEYWORD_MODE_UNSPECIFIED\x10\x00\x12\x14\n" +
 	"\x10KEYWORD_MODE_ALL\x10\x01\x12\x14\n" +

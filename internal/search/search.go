@@ -75,6 +75,7 @@ type Match struct {
 
 type Result struct {
 	Matches          []Match
+	DiscoveredFiles  int
 	ScannedFiles     int
 	ScannedBytes     int64
 	Truncated        bool
@@ -148,6 +149,7 @@ func (s *Service) Search(ctx context.Context, req Request) (Result, error) {
 		return Result{}, err
 	}
 	result := Result{Truncated: filesTruncated}
+	result.DiscoveredFiles = len(files)
 	if filesTruncated {
 		result.TruncationReason = "file limit reached"
 	}

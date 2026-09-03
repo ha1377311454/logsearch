@@ -29,6 +29,39 @@
     <section id="errors" class="errors"></section>
     <section id="results" class="results"></section>
   </main>
+  <dialog id="settingsDialog" class="settings-dialog">
+    <header class="dialog-head">
+      <div>
+        <h2>连接设置</h2>
+        <p>配置需要查询的 Agent 节点。</p>
+      </div>
+      <button id="closeSettings" class="icon-button" aria-label="关闭设置">×</button>
+    </header>
+    <section class="dialog-body form">
+      <label>节点地址
+        <textarea id="settingsNodes" rows="6" spellcheck="false" placeholder="node-01 http://10.0.0.11:30900&#10;node-02 http://10.0.0.12:30900"></textarea>
+        <span class="field-help">每行一个节点，格式为“名称 地址”；也可以只填写地址。</span>
+      </label>
+      <label>Bearer Token
+        <input id="settingsToken" type="password" autocomplete="off" placeholder="无鉴权时留空">
+      </label>
+      <div class="grid-two">
+        <label>请求超时（秒）<input id="settingsTimeout" type="number" min="1" max="60"></label>
+        <label>并发节点数<input id="settingsConcurrency" type="number" min="1" max="20"></label>
+      </div>
+      <label>Request ID 请求头
+        <input id="settingsHeaders" type="text" placeholder="x-request-id, x-trace-id, trace-id, traceparent">
+        <span class="field-help">按从左到右的顺序提取，使用逗号分隔。</span>
+      </label>
+    </section>
+    <footer class="dialog-actions">
+      <span id="settingsStatus" class="muted" role="status"></span>
+      <div>
+        <button id="cancelSettings">取消</button>
+        <button id="saveSettings" class="primary">保存</button>
+      </div>
+    </footer>
+  </dialog>
   <script src="index.js"></script>
 </body>
 </html>

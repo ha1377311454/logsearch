@@ -3,6 +3,7 @@ package search
 import (
 	"context"
 	"fmt"
+	"log"
 	"os"
 	"path/filepath"
 	"regexp"
@@ -89,7 +90,9 @@ func (s *Service) discoverProcessFiles(ctx context.Context, filter Filter) ([]Fi
 		var cmdline string
 		cmdlineLoaded := false
 		identity := s.processIdentity(current.Pid, pods)
-		if !containsAnyFold(identity.Pod, s.opts.PodNameContains) {
+		// cgroup 路径在不同运行时和 cgroup 版本下格式不同。Pod 元数据成功解析时
+		// 执行全局 Pod 约束；解析不到时仍由固定的进程规则和日志路径白名单约束。
+		if identity.Pod != "" && !containsAnyFold(identity.Pod, s.opts.PodNameContains) {
 			continue
 		}
 		for _, rule := range s.processRules {
@@ -106,6 +109,7 @@ func (s *Service) discoverProcessFiles(ctx context.Context, filter Filter) ([]Fi
 				}
 			}
 			discovered := s.filesForProcess(ctx, current, identity, rule, filter)
+			log.Printf("process log discovery rule=%s pid=%d pod=%s files=%d", rule.rule.Name, current.Pid, identity.Pod, len(discovered))
 			for _, file := range discovered {
 				files[file.OpenPath] = file
 			}
@@ -138,7 +142,9 @@ func (s *Service) filesForProcess(ctx context.Context, current *process.Process,
 
 	if rule.include != nil {
 		openFiles, err := current.OpenFilesWithContext(ctx)
-		if err == nil {
+		if err != nil {
+			log.Printf("process log open-files failed rule=%s pid=%d error=%v", rule.rule.Name, current.Pid, err)
+		} else {
 			for _, opened := range openFiles {
 				reported := strings.TrimSuffix(opened.Path, " (deleted)")
 				if !filepath.IsAbs(reported) || !rule.include.MatchString(reported) || (rule.exclude != nil && rule.exclude.MatchString(reported)) {
@@ -153,7 +159,11 @@ func (s *Service) filesForProcess(ctx context.Context, current *process.Process,
 	for _, logDir := range rule.rule.LogDirs {
 		processDir := filepath.Join(s.opts.ProcRoot, strconv.Itoa(int(current.Pid)), "root", strings.TrimPrefix(filepath.Clean(logDir), string(filepath.Separator)))
 		_ = filepath.WalkDir(processDir, func(path string, entry os.DirEntry, walkErr error) error {
-			if walkErr != nil || ctx.Err() != nil {
+			if walkErr != nil {
+				log.Printf("process log directory inaccessible rule=%s pid=%d path=%s error=%v", rule.rule.Name, current.Pid, path, walkErr)
+				return nil
+			}
+			if ctx.Err() != nil {
 				return nil
 			}
 			if entry.IsDir() || entry.Type()&os.ModeSymlink != 0 || !matchesPattern(path, rule.rule.FilePatterns) {
