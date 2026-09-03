@@ -90,3 +90,7 @@ ghcr.io/<owner>/<repository>:latest
 ```bash
 docker pull ghcr.io/<owner>/<repository>:v0.1.0
 ```
+
+## 开源许可
+
+本项目基于 [MIT License](LICENSE) 开源。
