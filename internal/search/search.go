@@ -5,6 +5,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"io"
 	"io/fs"
 	"os"
 	"path/filepath"
@@ -141,7 +142,11 @@ func (s *Service) Search(ctx context.Context, req Request) (Result, error) {
 		maxResults = s.opts.MaxResults
 	}
 	maxBytes := req.MaxBytes
-	if maxBytes <= 0 || maxBytes > s.opts.MaxResponseBytes {
+	if s.opts.MaxResponseBytes < 0 {
+		if maxBytes <= 0 {
+			maxBytes = int64(^uint64(0) >> 1)
+		}
+	} else if maxBytes <= 0 || maxBytes > s.opts.MaxResponseBytes {
 		maxBytes = s.opts.MaxResponseBytes
 	}
 	files, filesTruncated, err := s.walk(ctx, req.Filter, s.opts.MaxFiles)
@@ -263,15 +268,21 @@ func (s *Service) scanFile(ctx context.Context, file File, req Request, keywords
 	var bytesRead int64
 	var responseBytes int64
 	var lineNumber int64
-	scanner := bufio.NewScanner(f)
-	scanner.Buffer(make([]byte, 64*1024), s.opts.MaxLineBytes)
-	for scanner.Scan() {
+	reader := bufio.NewReaderSize(f, 64*1024)
+	for {
 		if err := ctx.Err(); err != nil {
 			break
 		}
+		physical, err := readPhysicalLine(ctx, reader, keywords, req.Mode, req.CaseSensitive, s.opts.MaxLineBytes)
+		if errors.Is(err, io.EOF) {
+			break
+		}
+		if err != nil {
+			return completed, bytesRead, false, fmt.Errorf("scan %s: %w", file.Path, err)
+		}
 		lineNumber++
-		line := scanner.Text()
-		bytesRead += int64(len(line) + 1)
+		line := physical.text
+		bytesRead += physical.bytes
 		for i := 0; i < len(active); {
 			active[i].match.After = append(active[i].match.After, line)
 			active[i].remaining--
@@ -283,7 +294,7 @@ func (s *Service) scanFile(ctx context.Context, file File, req Request, keywords
 			}
 			i++
 		}
-		if lineMatches(line, keywords, req.Mode, req.CaseSensitive) && inTimeRange(line, req.StartTime, req.EndTime) {
+		if physical.matched && inTimeRange(line, req.StartTime, req.EndTime) {
 			match := Match{File: file, LineNumber: lineNumber, Timestamp: criTimestamp(line), Text: line, Before: append([]string(nil), before...)}
 			if req.AfterContext > 0 {
 				active = append(active, &pending{match: match, remaining: req.AfterContext})
@@ -302,9 +313,6 @@ func (s *Service) scanFile(ctx context.Context, file File, req Request, keywords
 			break
 		}
 	}
-	if err := scanner.Err(); err != nil {
-		return completed, bytesRead, false, fmt.Errorf("scan %s: %w", file.Path, err)
-	}
 	for _, item := range active {
 		if len(completed) >= maxResults || responseBytes >= maxBytes {
 			break
@@ -313,6 +321,119 @@ func (s *Service) scanFile(ctx context.Context, file File, req Request, keywords
 		completed = append(completed, item.match)
 	}
 	return completed, bytesRead, ctx.Err() != nil, nil
+}
+
+type physicalLine struct {
+	text    string
+	bytes   int64
+	matched bool
+}
+
+// readPhysicalLine 分片读取一条物理行，避免超长 JSON 日志触发 bufio.Scanner 的 token too long。
+// maxDisplayBytes 仅限制返回给客户端的文本；关键词匹配仍覆盖整条物理行。
+func readPhysicalLine(ctx context.Context, reader *bufio.Reader, keywords []string, mode KeywordMode, caseSensitive bool, maxDisplayBytes int) (physicalLine, error) {
+	unlimitedDisplay := maxDisplayBytes < 0
+	if maxDisplayBytes == 0 {
+		maxDisplayBytes = 1 << 20
+	}
+
+	displayCapacity := 64 * 1024
+	if !unlimitedDisplay {
+		displayCapacity = min(maxDisplayBytes, displayCapacity)
+	}
+	display := make([]byte, 0, displayCapacity)
+	hits := make([]bool, len(keywords))
+	maxKeywordBytes := 0
+	for _, keyword := range keywords {
+		if len(keyword) > maxKeywordBytes {
+			maxKeywordBytes = len(keyword)
+		}
+	}
+	overlap := ""
+	var bytesRead int64
+
+	for {
+		if err := ctx.Err(); err != nil {
+			return physicalLine{}, err
+		}
+		fragment, err := reader.ReadSlice('\n')
+		if len(fragment) > 0 {
+			bytesRead += int64(len(fragment))
+			remaining := maxDisplayBytes - len(display)
+			if unlimitedDisplay {
+				display = append(display, fragment...)
+			} else if remaining > 0 {
+				if remaining > len(fragment) {
+					remaining = len(fragment)
+				}
+				display = append(display, fragment[:remaining]...)
+			}
+
+			searchFragment := string(fragment)
+			if !caseSensitive {
+				searchFragment = strings.ToLower(searchFragment)
+			}
+			searchText := overlap + searchFragment
+			for i, keyword := range keywords {
+				if !hits[i] && strings.Contains(searchText, keyword) {
+					hits[i] = true
+				}
+			}
+			if maxKeywordBytes > 1 {
+				keep := maxKeywordBytes - 1
+				if keep > len(searchText) {
+					keep = len(searchText)
+				}
+				overlap = searchText[len(searchText)-keep:]
+			}
+		}
+
+		switch {
+		case err == nil:
+			return finishPhysicalLine(display, bytesRead, maxDisplayBytes, unlimitedDisplay, hits, mode), nil
+		case errors.Is(err, bufio.ErrBufferFull):
+			continue
+		case errors.Is(err, io.EOF):
+			if bytesRead == 0 {
+				return physicalLine{}, io.EOF
+			}
+			return finishPhysicalLine(display, bytesRead, maxDisplayBytes, unlimitedDisplay, hits, mode), nil
+		default:
+			return physicalLine{}, err
+		}
+	}
+}
+
+func finishPhysicalLine(display []byte, bytesRead int64, maxDisplayBytes int, unlimitedDisplay bool, hits []bool, mode KeywordMode) physicalLine {
+	display = bytesTrimLineEnding(display)
+	truncated := !unlimitedDisplay && bytesRead > int64(maxDisplayBytes)
+	text := string(display)
+	if truncated {
+		text += " ... [line truncated]"
+	}
+
+	matched := mode != KeywordAny
+	for _, hit := range hits {
+		if mode == KeywordAny && hit {
+			matched = true
+			break
+		}
+		if mode != KeywordAny && !hit {
+			matched = false
+			break
+		}
+	}
+	return physicalLine{text: text, bytes: bytesRead, matched: matched}
+}
+
+func bytesTrimLineEnding(value []byte) []byte {
+	if len(value) > 0 && value[len(value)-1] == '\n' {
+		value = value[:len(value)-1]
+	}
+	if len(value) > 0 && value[len(value)-1] == '\r' {
+		value = value[:len(value)-1]
+	}
+	return value
 }
 
 func (s *Service) allowedExtension(path string) bool {

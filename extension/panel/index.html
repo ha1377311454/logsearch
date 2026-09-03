@@ -12,22 +12,34 @@
       <div><p class="eyebrow">DISTRIBUTED LOG TRACE</p><h1>LogSearch</h1></div>
       <button id="settings" class="ghost">连接设置</button>
     </header>
-    <section class="card form">
-      <div class="grid-request">
-        <label>Network 请求<select id="requests"><option value="">点击刷新读取请求</option></select></label>
-        <button id="refresh" class="ghost align-end">刷新请求</button>
+    <section class="network-layout">
+      <aside class="request-pane" aria-label="Network 请求列表">
+        <div class="request-toolbar">
+          <input id="requestFilter" type="search" placeholder="筛选请求" aria-label="筛选请求">
+          <button id="refresh" class="icon-button" title="刷新请求" aria-label="刷新请求">↻</button>
+        </div>
+        <div class="request-columns" aria-hidden="true">
+          <span>名称</span><span>方法</span><span>状态</span>
+        </div>
+        <div id="requestList" class="request-list" role="listbox" aria-label="Network 请求"></div>
+        <div id="requestCount" class="request-count">0 个请求</div>
+      </aside>
+      <div class="query-pane">
+        <div id="selectedRequest" class="selected-request muted">请从左侧选择一个请求，或直接输入关键词</div>
+        <section class="query-form form">
+          <label>Request ID / 关键词<input id="keywords" type="text" placeholder="选择请求后自动提取，也可以输入多个关键词并用逗号分隔"></label>
+          <div class="grid-four">
+            <label>匹配方式<select id="mode"><option value="KEYWORD_MODE_ALL">全部关键词在同一行</option><option value="KEYWORD_MODE_ANY">任一关键词</option></select></label>
+            <label>前文行数<input id="before" type="number" min="0" max="100" value="2"></label>
+            <label>后文行数<input id="after" type="number" min="0" max="100" value="2"></label>
+            <label>最大结果数<input id="maxResults" type="number" min="1" max="50000" value="5000"></label>
+          </div>
+          <div class="actions"><button id="search" class="primary">查询所有节点</button><span id="summary" class="muted"></span></div>
+        </section>
+        <section id="errors" class="errors"></section>
+        <section id="results" class="results"></section>
       </div>
-      <label>Request ID / 关键词<input id="keywords" type="text" placeholder="自动提取，也可以输入多个关键词并用逗号分隔"></label>
-      <div class="grid-four">
-        <label>匹配方式<select id="mode"><option value="KEYWORD_MODE_ALL">全部关键词在同一行</option><option value="KEYWORD_MODE_ANY">任一关键词</option></select></label>
-        <label>前文行数<input id="before" type="number" min="0" max="100" value="2"></label>
-        <label>后文行数<input id="after" type="number" min="0" max="100" value="2"></label>
-        <label>最大结果数<input id="maxResults" type="number" min="1" max="5000" value="500"></label>
-      </div>
-      <div class="actions"><button id="search" class="primary">查询所有节点</button><span id="summary" class="muted"></span></div>
     </section>
-    <section id="errors" class="errors"></section>
-    <section id="results" class="results"></section>
   </main>
   <dialog id="settingsDialog" class="settings-dialog">
     <header class="dialog-head">

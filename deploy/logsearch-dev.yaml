@@ -29,12 +29,13 @@ data:
           max_file_age: 48h
       max_concurrent_searches: 4
       max_files_per_request: 200
-      default_max_results: 500
-      hard_max_results: 5000
+      default_max_results: 5000
+      hard_max_results: 50000
       default_timeout: 15s
       hard_timeout: 60s
-      max_response_bytes: 20971520
-      max_line_bytes: 1048576
+      # 开发环境需要查看完整日志，-1 表示不限制响应总大小和单行展示大小。
+      max_response_bytes: -1
+      max_line_bytes: -1
     security:
       # 开发环境不启用鉴权。
       token: ""

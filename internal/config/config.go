@@ -102,10 +102,10 @@ func (c *Config) defaults() {
 	if c.Search.HardTimeout == "" {
 		c.Search.HardTimeout = "60s"
 	}
-	if c.Search.MaxResponseBytes <= 0 {
+	if c.Search.MaxResponseBytes == 0 {
 		c.Search.MaxResponseBytes = 20 << 20
 	}
-	if c.Search.MaxLineBytes <= 0 {
+	if c.Search.MaxLineBytes == 0 {
 		c.Search.MaxLineBytes = 1 << 20
 	}
 }

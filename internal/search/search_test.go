@@ -4,6 +4,7 @@ import (
 	"context"
 	"os"
 	"path/filepath"
+	"strings"
 	"testing"
 	"time"
 
@@ -61,6 +62,72 @@ func TestLineMatchesAnyIsCaseInsensitive(t *testing.T) {
 	}
 	if lineMatches("Trace REQUEST-123", []string{"request-123", "missing"}, KeywordAll, false) {
 		t.Fatal("did not expect ALL match when one keyword is absent")
+	}
+}
+
+func TestSearchOversizedLineMatchesBeyondDisplayLimit(t *testing.T) {
+	root := t.TempDir()
+	logDir := filepath.Join(root, "demo-ns_demo-pod_uid", "api")
+	if err := os.MkdirAll(logDir, 0o755); err != nil {
+		t.Fatal(err)
+	}
+	content := strings.Repeat("x", 2<<20) + " request-after-one-megabyte\n"
+	if err := os.WriteFile(filepath.Join(logDir, "0.log"), []byte(content), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	service, err := New(Options{
+		Roots:             []string{root},
+		AllowedExtensions: []string{".log"},
+		MaxFiles:          10,
+		MaxResults:        10,
+		MaxResponseBytes:  4 << 20,
+		MaxLineBytes:      1 << 20,
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	result, err := service.Search(context.Background(), Request{Keywords: []string{"request-after-one-megabyte"}})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(result.Matches) != 1 {
+		t.Fatalf("expected oversized line to match, got %d matches", len(result.Matches))
+	}
+	if !strings.HasSuffix(result.Matches[0].Text, "[line truncated]") {
+		t.Fatalf("expected oversized response line to be marked truncated, got %q", result.Matches[0].Text)
+	}
+}
+
+func TestSearchUnlimitedLineReturnsCompleteText(t *testing.T) {
+	root := t.TempDir()
+	logDir := filepath.Join(root, "demo-ns_demo-pod_uid", "api")
+	if err := os.MkdirAll(logDir, 0o755); err != nil {
+		t.Fatal(err)
+	}
+	line := strings.Repeat("x", 2<<20) + " complete-request"
+	if err := os.WriteFile(filepath.Join(logDir, "0.log"), []byte(line+"\n"), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	service, err := New(Options{
+		Roots:             []string{root},
+		AllowedExtensions: []string{".log"},
+		MaxFiles:          10,
+		MaxResults:        10,
+		MaxResponseBytes:  -1,
+		MaxLineBytes:      -1,
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	result, err := service.Search(context.Background(), Request{Keywords: []string{"complete-request"}})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(result.Matches) != 1 {
+		t.Fatalf("expected one complete oversized line, got %d matches", len(result.Matches))
+	}
+	if result.Matches[0].Text != line {
+		t.Fatalf("expected complete oversized line, got %d of %d bytes", len(result.Matches[0].Text), len(line))
 	}
 }
 

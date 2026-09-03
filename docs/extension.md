@@ -21,9 +21,9 @@ node-02 https://node-02.example.internal:9443
 ## 查询
 
 1. 打开目标页面的 DevTools。
-2. 切换到 `LogSearch` 面板。
-3. 点击“刷新请求”，选择一个 Network 请求。
-4. 插件按设置的请求头优先级提取 Request ID。
+2. 切换到 `LogSearch` 面板，左侧会像 Network 一样列出最近的请求。
+3. 可以按名称、路径、方法或状态码筛选，然后点击一个请求。
+4. 插件先按设置的请求头优先级提取 Request ID；请求头中没有时，再从响应 JSON 的 `requestId`、`request_id`、`traceId` 或 `trace_id` 字段提取。
 5. 确认关键词，点击“查询所有节点”。
 
 支持逗号、分号或换行分隔多个关键词。默认“全部关键词在同一行”；任一节点失败或超时不会影响其他节点的结果。

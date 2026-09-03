@@ -36,6 +36,8 @@ go run ./cmd/logsearch-cli \
 
 多个关键词用逗号分隔。`all` 表示所有关键词必须出现在同一行，`any` 表示命中任意关键词。
 
+`search.max_response_bytes` 控制单次响应总大小，`search.max_line_bytes` 控制单行返回大小；二者设置为 `-1` 时不限制。开发环境清单默认不限制，生产环境建议保留合理上限。
+
 ## 生成协议代码
 
 安装 `protoc-gen-go` 和 `protoc-gen-connect-go` 后执行：

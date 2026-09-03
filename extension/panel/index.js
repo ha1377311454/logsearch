@@ -22,7 +22,7 @@ $("#settingsDialog").addEventListener("click", (event) => {
   if (event.target === $("#settingsDialog")) closeSettings();
 });
 $("#refresh").addEventListener("click", loadRequests);
-$("#requests").addEventListener("change", extractRequestId);
+$("#requestFilter").addEventListener("input", renderRequestList);
 $("#search").addEventListener("click", runSearch);
 chrome.devtools.network.onRequestFinished.addListener(() => loadRequests());
 
@@ -82,19 +82,58 @@ async function saveSettings() {
 function loadRequests() {
   chrome.devtools.network.getHAR((har) => {
     networkRequests = har.entries.slice(-200).reverse();
-    const select = $("#requests");
-    select.replaceChildren(new Option("选择一个请求", ""));
-    networkRequests.forEach((entry, index) => {
-      const url = new URL(entry.request.url);
-      select.add(new Option(`${entry.request.method} ${url.pathname}  ${entry.response.status}`, String(index)));
-    });
+    renderRequestList();
   });
 }
 
-async function extractRequestId() {
-  const index = $("#requests").value;
-  if (index === "") return;
+function renderRequestList() {
+  const filter = $("#requestFilter").value.trim().toLowerCase();
+  const list = $("#requestList");
+  list.replaceChildren();
+  let visible = 0;
+  networkRequests.forEach((entry, index) => {
+    const url = new URL(entry.request.url);
+    const pathname = url.pathname || "/";
+    const name = pathname.split("/").filter(Boolean).pop() || url.hostname;
+    const searchable = `${entry.request.method} ${entry.response.status} ${url.hostname} ${pathname}`.toLowerCase();
+    if (filter && !searchable.includes(filter)) return;
+    const row = document.createElement("button");
+    row.type = "button";
+    row.className = "request-row";
+    row.dataset.index = String(index);
+    row.setAttribute("role", "option");
+    row.title = entry.request.url;
+    const nameCell = document.createElement("span");
+    nameCell.className = "request-name";
+    nameCell.textContent = name;
+    const methodCell = document.createElement("span");
+    methodCell.textContent = entry.request.method;
+    const statusCell = document.createElement("span");
+    statusCell.className = Number(entry.response.status) >= 400 ? "status-error" : "";
+    statusCell.textContent = entry.response.status || "-";
+    row.append(nameCell, methodCell, statusCell);
+    row.addEventListener("click", () => selectRequest(index, row));
+    list.append(row);
+    visible++;
+  });
+  $("#requestCount").textContent = `${visible}/${networkRequests.length} 个请求`;
+  if (!visible) {
+    const empty = document.createElement("div");
+    empty.className = "request-empty";
+    empty.textContent = networkRequests.length ? "没有匹配的请求" : "暂无请求";
+    list.append(empty);
+  }
+}
+
+async function selectRequest(index, row) {
   const entry = networkRequests[Number(index)];
+  document.querySelectorAll(".request-row.selected").forEach((item) => {
+    item.classList.remove("selected");
+    item.setAttribute("aria-selected", "false");
+  });
+  row.classList.add("selected");
+  row.setAttribute("aria-selected", "true");
+  $("#selectedRequest").textContent = `${entry.request.method} ${entry.request.url} · ${entry.response.status}`;
   const config = await chrome.storage.local.get({ requestIdHeaders: ["x-request-id", "x-trace-id", "trace-id", "traceparent"] });
   const headers = [...entry.request.headers, ...entry.response.headers];
   for (const preferred of config.requestIdHeaders) {
@@ -104,6 +143,41 @@ async function extractRequestId() {
       return;
     }
   }
+  const bodyRequestId = await requestIdFromResponseBody(entry);
+  if (bodyRequestId) {
+    $("#keywords").value = bodyRequestId;
+    showSummary("已从响应 JSON 提取 Request ID");
+    return;
+  }
+  $("#keywords").value = "";
+  showSummary("该请求的请求头和响应头中没有找到 Request ID", true);
+}
+
+function requestIdFromResponseBody(entry) {
+  return new Promise((resolve) => {
+    entry.getContent((content) => {
+      try {
+        const body = JSON.parse(content);
+        resolve(findRequestId(body));
+      } catch {
+        resolve("");
+      }
+    });
+  });
+}
+
+function findRequestId(value, depth = 0) {
+  if (!value || typeof value !== "object" || depth > 5) return "";
+  for (const [key, child] of Object.entries(value)) {
+    if (["requestid", "request_id", "traceid", "trace_id"].includes(key.toLowerCase()) && ["string", "number"].includes(typeof child)) {
+      return String(child);
+    }
+  }
+  for (const child of Object.values(value)) {
+    const found = findRequestId(child, depth + 1);
+    if (found) return found;
+  }
+  return "";
 }
 
 async function runSearch() {
@@ -118,7 +192,7 @@ async function runSearch() {
     keywordMode: $("#mode").value,
     beforeContext: Number($("#before").value) || 0,
     afterContext: Number($("#after").value) || 0,
-    maxResults: Number($("#maxResults").value) || 500
+    maxResults: Number($("#maxResults").value) || 5000
   };
   try {
     const response = await chrome.runtime.sendMessage({ type: "search", payload });
