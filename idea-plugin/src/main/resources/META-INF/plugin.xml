@@ -1,0 +1,10 @@
+<idea-plugin>
+    <depends>com.intellij.modules.platform</depends>
+
+    <extensions defaultExtensionNs="com.intellij">
+        <toolWindow
+                id="LogSearch"
+                anchor="right"
+                factoryClass="io.github.ha1377311454.logsearch.toolwindow.LogSearchToolWindowFactory"/>
+    </extensions>
+</idea-plugin>
