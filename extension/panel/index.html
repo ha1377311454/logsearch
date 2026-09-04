@@ -66,8 +66,8 @@
         <section id="errors" class="errors"></section>
         <section id="resultTools" class="result-tools" hidden>
           <span class="result-filter-icon" aria-hidden="true">⌕</span>
-          <input id="resultFilter" type="search" placeholder="快捷过滤已返回结果，多个关键词用空格分隔" aria-label="过滤查询结果" autocomplete="off" spellcheck="false">
-          <span id="resultFilterCount" class="muted"></span>
+          <input id="resultFilter" type="search" placeholder="快捷过滤已返回结果，多个关键词用空格分隔；回车跳转命中" aria-label="过滤查询结果，按回车跳转到下一个命中，按 Shift 加回车跳转到上一个命中" autocomplete="off" spellcheck="false">
+          <span id="resultFilterCount" class="muted" role="status" aria-live="polite"></span>
           <button id="clearResultFilter" type="button" class="ghost" hidden>清除</button>
         </section>
         <section id="results" class="results"></section>

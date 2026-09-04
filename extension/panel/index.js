@@ -9,6 +9,7 @@ let activeEnvironmentId = "";
 let defaultEnvironmentId = "";
 let renderedMatches = [];
 let resultSummary = "";
+let activeResultHighlightIndex = -1;
 const $ = (selector) => document.querySelector(selector);
 
 // DevTools 主题可以独立于操作系统主题，优先使用当前 DevTools 的主题值。
@@ -59,9 +60,18 @@ $("#environmentForm").addEventListener("submit", createEnvironment);
 $("#exportConfig").addEventListener("click", exportConfig);
 $("#importConfig").addEventListener("click", () => $("#configFile").click());
 $("#configFile").addEventListener("change", importConfig);
-$("#resultFilter").addEventListener("input", renderFilteredResults);
+$("#resultFilter").addEventListener("input", () => {
+  activeResultHighlightIndex = -1;
+  renderFilteredResults();
+});
+$("#resultFilter").addEventListener("keydown", (event) => {
+  if (event.key !== "Enter") return;
+  event.preventDefault();
+  navigateResultHighlight(event.shiftKey ? -1 : 1);
+});
 $("#clearResultFilter").addEventListener("click", () => {
   $("#resultFilter").value = "";
+  activeResultHighlightIndex = -1;
   renderFilteredResults();
   $("#resultFilter").focus();
 });
@@ -700,6 +710,7 @@ async function runSearch() {
   $("#errors").replaceChildren();
   $("#resultTools").hidden = true;
   $("#resultFilter").value = "";
+  activeResultHighlightIndex = -1;
   renderedMatches = [];
   showSummary("正在查询所有节点…");
   const payload = {
@@ -754,7 +765,10 @@ function renderFilteredResults() {
   const results = $("#results");
   results.replaceChildren(...visibleMatches.map((match) => renderMatch(match, terms)));
   $("#clearResultFilter").hidden = !terms.length;
-  $("#resultFilterCount").textContent = terms.length ? `${visibleMatches.length}/${renderedMatches.length} 条` : `${renderedMatches.length} 条`;
+  const highlightCount = results.querySelectorAll("mark").length;
+  $("#resultFilterCount").textContent = terms.length
+    ? `${visibleMatches.length}/${renderedMatches.length} 条 · ${highlightCount} 个命中`
+    : `${renderedMatches.length} 条`;
   showSummary(terms.length ? `${resultSummary}；前端过滤后显示 ${visibleMatches.length} 条` : resultSummary);
   if (!visibleMatches.length) {
     const empty = document.createElement("div");
@@ -762,6 +776,23 @@ function renderFilteredResults() {
     empty.textContent = terms.length ? "返回结果中没有匹配项" : "没有找到匹配日志";
     results.append(empty);
   }
+}
+
+function navigateResultHighlight(direction) {
+  const highlights = [...$("#results").querySelectorAll("mark")];
+  if (!highlights.length) return;
+  highlights.forEach((mark) => {
+    mark.classList.remove("active-result-highlight");
+    mark.removeAttribute("aria-current");
+  });
+  activeResultHighlightIndex = activeResultHighlightIndex < 0
+    ? (direction > 0 ? 0 : highlights.length - 1)
+    : (activeResultHighlightIndex + direction + highlights.length) % highlights.length;
+  const active = highlights[activeResultHighlightIndex];
+  active.classList.add("active-result-highlight");
+  active.setAttribute("aria-current", "true");
+  active.scrollIntoView({ behavior: "smooth", block: "center", inline: "nearest" });
+  $("#resultFilterCount").textContent = `${activeResultHighlightIndex + 1}/${highlights.length} 个命中`;
 }
 
 function splitResultFilter(value) {

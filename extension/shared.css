@@ -208,6 +208,7 @@ button:disabled { opacity: .5; cursor: wait; }
 .result-tools .muted { min-width: 58px; text-align: right; white-space: nowrap; }
 .result-tools button { min-height: 24px; padding-inline: 7px; }
 mark { padding: 0 1px; border-radius: 2px; background: #fbbc04; color: #202124; box-shadow: 0 0 0 1px rgb(0 0 0 / 8%); }
+mark.active-result-highlight { background: #ff6d00; color: #fff; box-shadow: 0 0 0 2px color-mix(in srgb, #ff6d00 45%, transparent); }
 .copy-success { border-color: #188038; color: #188038; }
 .copy-failed { border-color: var(--danger); color: var(--danger); }
 
