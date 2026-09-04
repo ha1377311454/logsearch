@@ -35,7 +35,7 @@ Chrome 不能直接连接原生 gRPC TCP 服务。Agent 使用 Connect 协议，
 1. 用户在 DevTools 的 LogSearch 面板中选择一个 Network 请求。
 2. 扩展按配置从请求头、响应头中提取 Request ID；未找到时允许手工输入。
 3. Service Worker 对所有启用节点执行有并发上限的查询。
-4. 每个 Agent 校验请求，在允许的日志根目录中选择候选文件并逐行扫描。
+4. 每个 Agent 校验请求，在允许的日志根目录中选择候选文件；配置了多行规则时先合并物理行，再扫描逻辑日志记录。
 5. 扩展使用 `Promise.allSettled` 语义汇总；单节点失败不影响其他节点。
 6. 结果按日志时间、节点、文件和行号排序，并明确显示超时、失败和截断状态。
 
@@ -48,6 +48,8 @@ Agent 不接受客户端提供的绝对路径。客户端只能给出 namespace�
 Agent 配置可通过 `search.pod_name_contains` 进一步限制允许读取的 Pod。该规则按 Pod 名进行不区分大小写的包含匹配，多个配置值是 OR 关系，在任何客户端过滤之前执行，因此客户端无法扩大 Agent 配置的日志范围。空数组表示不限制 Pod。
 
 除 kubelet 标准输出日志外，Agent 支持 `search.process_logs`。实现参考 `log-collector`：使用 gopsutil 枚举本节点进程，通过 `comm_regex` 和 `cmdline_regex` 进行 AND 匹配，读取进程当前打开的文件，并优先转换为 `/proc/<pid>/root/<容器内路径>`。配置 `log_dirs` 后，还会从同一容器文件系统目录中发现轮转文件。
+
+每条进程日志规则可以配置 `multiline.start_pattern`。匹配该正则的物理行开始一条新记录，未匹配的行追加到上一条记录；文件结束时输出最后一条记录。关键词 AND/OR、时间过滤和前后文均作用于合并后的记录，返回的 `line_number` 是该记录首个物理行的行号。`max_multiline_bytes` 和 `max_multiline_lines` 防止异常文件无限占用内存，值为 `-1` 时不限制。
 
 进程日志目录和文件规则完全由 Agent 配置，客户端不能传入目录。`include_regex` 约束进程已打开的文件，`file_patterns` 约束指定目录中的文件，`max_files` 按修改时间保留最新文件，`max_file_age` 排除过旧文件。
 
@@ -68,7 +70,7 @@ Kubernetes 默认日志根目录为 `/host/var/log/pods`。文件路径通常包
 - 每次扫描的文件数。
 - 最大结果数和最大响应字节数。
 - 查询超时。
-- 单行最大字节数。
+- 单行以及合并后单条记录的最大字节数、最大物理行数。
 
 达到结果数、字节数或超时限制时返回 `truncated=true`，而不是继续消耗节点资源。
 
@@ -115,7 +117,7 @@ api/logsearch/v1/       protobuf 和生成代码
 cmd/logsearch-agent/    节点服务
 cmd/logsearch-cli/      命令行客户端
 internal/config/        YAML 配置
-internal/search/        文件选择和逐行搜索
+internal/search/        文件选择、物理行读取、多行合并和记录搜索
 internal/server/        Connect handler、安全与 CORS
 extension/              Chrome DevTools 扩展
 deploy/                 Kubernetes 清单

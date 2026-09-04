@@ -30,8 +30,8 @@
           <label>Request ID / 关键词<input id="keywords" type="text" placeholder="选择请求后自动提取，也可以输入多个关键词并用逗号分隔"></label>
           <div class="grid-four">
             <label>匹配方式<select id="mode"><option value="KEYWORD_MODE_ALL">全部关键词在同一行</option><option value="KEYWORD_MODE_ANY">任一关键词</option></select></label>
-            <label>前文行数<input id="before" type="number" min="0" max="100" value="2"></label>
-            <label>后文行数<input id="after" type="number" min="0" max="100" value="2"></label>
+            <label>前文行数<input id="before" type="number" min="0" max="100" value="0"></label>
+            <label>后文行数<input id="after" type="number" min="0" max="100" value="0"></label>
             <label>最大结果数<input id="maxResults" type="number" min="1" max="50000" value="5000"></label>
           </div>
           <div class="actions"><button id="search" class="primary">查询所有节点</button><span id="summary" class="muted"></span></div>

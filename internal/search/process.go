@@ -16,21 +16,22 @@ import (
 )
 
 type ProcessLogRule struct {
-	Name         string
-	CommRegex    string
-	CmdlineRegex string
-	IncludeRegex string
-	ExcludeRegex string
-	LogDirs      []string
-	FilePatterns []string
-	MaxFiles     int
-	MaxFileAge   time.Duration
+	Name                  string
+	CommRegex             string
+	CmdlineRegex          string
+	IncludeRegex          string
+	ExcludeRegex          string
+	LogDirs               []string
+	FilePatterns          []string
+	MaxFiles              int
+	MaxFileAge            time.Duration
+	MultilineStartPattern string
 }
 
 type compiledProcessRule struct {
-	rule             ProcessLogRule
-	comm, cmdline    *regexp.Regexp
-	include, exclude *regexp.Regexp
+	rule                             ProcessLogRule
+	comm, cmdline                    *regexp.Regexp
+	include, exclude, multilineStart *regexp.Regexp
 }
 
 type podIdentity struct {
@@ -56,6 +57,9 @@ func compileProcessRules(rules []ProcessLogRule) ([]compiledProcessRule, error) 
 		}
 		if item.exclude, err = optionalRegexp(rule.ExcludeRegex); err != nil {
 			return nil, fmt.Errorf("process rule %q exclude_regex: %w", rule.Name, err)
+		}
+		if item.multilineStart, err = optionalRegexp(rule.MultilineStartPattern); err != nil {
+			return nil, fmt.Errorf("process rule %q multiline.start_pattern: %w", rule.Name, err)
 		}
 		compiled = append(compiled, item)
 	}
@@ -133,7 +137,7 @@ func (s *Service) filesForProcess(ctx context.Context, current *process.Process,
 		if err != nil || !info.Mode().IsRegular() || (rule.rule.MaxFileAge > 0 && time.Since(info.ModTime()) > rule.rule.MaxFileAge) {
 			return
 		}
-		file := File{SourceType: "process", Rule: rule.rule.Name, Namespace: identity.Namespace, Pod: identity.Pod, Container: rule.rule.Name, Path: reportedPath, OpenPath: openPath, Size: info.Size(), Modified: info.ModTime()}
+		file := File{SourceType: "process", Rule: rule.rule.Name, Namespace: identity.Namespace, Pod: identity.Pod, Container: rule.rule.Name, Path: reportedPath, OpenPath: openPath, Size: info.Size(), Modified: info.ModTime(), multilineStart: rule.multilineStart}
 		if matchesFilter(file, filter) {
 			seen[openPath] = struct{}{}
 			files = append(files, file)

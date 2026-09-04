@@ -81,7 +81,13 @@ search:
         - 'example-api*.log'
       max_files: 20
       max_file_age: 48h
+      multiline:
+        start_pattern: '^[0-9]{4}-[0-9]{2}-[0-9]{2}[ T][0-9]{2}:[0-9]{2}:[0-9]{2}'
+  max_multiline_bytes: 4194304
+  max_multiline_lines: 1000
 ```
+
+`multiline.start_pattern` 匹配一条日志的起始行，未匹配的 Java 堆栈等后续行会合并到上一条记录后再搜索。未配置时保持逐物理行搜索。两个多行上限设置为 `-1` 表示不限制；生产环境建议保留上限。
 
 查询流程是：
 

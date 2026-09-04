@@ -9,6 +9,7 @@ import (
 	"io/fs"
 	"os"
 	"path/filepath"
+	"regexp"
 	"sort"
 	"strings"
 	"time"
@@ -31,6 +32,8 @@ type Options struct {
 	MaxResults        int
 	MaxResponseBytes  int64
 	MaxLineBytes      int
+	MaxMultilineBytes int
+	MaxMultilineLines int
 }
 
 type Filter struct {
@@ -54,15 +57,16 @@ type Request struct {
 }
 
 type File struct {
-	SourceType string
-	Rule       string
-	Namespace  string
-	Pod        string
-	Container  string
-	Path       string
-	OpenPath   string
-	Size       int64
-	Modified   time.Time
+	SourceType     string
+	Rule           string
+	Namespace      string
+	Pod            string
+	Container      string
+	Path           string
+	OpenPath       string
+	Size           int64
+	Modified       time.Time
+	multilineStart *regexp.Regexp
 }
 
 type Match struct {
@@ -268,21 +272,28 @@ func (s *Service) scanFile(ctx context.Context, file File, req Request, keywords
 	var bytesRead int64
 	var responseBytes int64
 	var lineNumber int64
-	reader := bufio.NewReaderSize(f, 64*1024)
+	records := &logRecordReader{
+		ctx: ctx, reader: bufio.NewReaderSize(f, 64*1024), keywords: keywords,
+		mode: req.Mode, caseSensitive: req.CaseSensitive, maxDisplayBytes: s.opts.MaxLineBytes,
+		start: file.multilineStart, maxMultilineBytes: s.opts.MaxMultilineBytes, maxMultilineLines: s.opts.MaxMultilineLines,
+	}
 	for {
 		if err := ctx.Err(); err != nil {
 			break
 		}
-		physical, err := readPhysicalLine(ctx, reader, keywords, req.Mode, req.CaseSensitive, s.opts.MaxLineBytes)
+		record, err := records.next()
 		if errors.Is(err, io.EOF) {
 			break
 		}
 		if err != nil {
+			if errors.Is(err, context.Canceled) || errors.Is(err, context.DeadlineExceeded) {
+				break
+			}
 			return completed, bytesRead, false, fmt.Errorf("scan %s: %w", file.Path, err)
 		}
-		lineNumber++
-		line := physical.text
-		bytesRead += physical.bytes
+		lineNumber = record.lineNumber
+		line := record.text
+		bytesRead += record.bytes
 		for i := 0; i < len(active); {
 			active[i].match.After = append(active[i].match.After, line)
 			active[i].remaining--
@@ -294,7 +305,7 @@ func (s *Service) scanFile(ctx context.Context, file File, req Request, keywords
 			}
 			i++
 		}
-		if physical.matched && inTimeRange(line, req.StartTime, req.EndTime) {
+		if record.matched && inTimeRange(line, req.StartTime, req.EndTime) {
 			match := Match{File: file, LineNumber: lineNumber, Timestamp: criTimestamp(line), Text: line, Before: append([]string(nil), before...)}
 			if req.AfterContext > 0 {
 				active = append(active, &pending{match: match, remaining: req.AfterContext})
@@ -327,6 +338,82 @@ type physicalLine struct {
 	text    string
 	bytes   int64
 	matched bool
+	hits    []bool
+}
+
+type logicalRecord struct {
+	physicalLine
+	lineNumber int64
+}
+
+type logRecordReader struct {
+	ctx                                  context.Context
+	reader                               *bufio.Reader
+	keywords                             []string
+	mode                                 KeywordMode
+	caseSensitive                        bool
+	maxDisplayBytes                      int
+	start                                *regexp.Regexp
+	maxMultilineBytes, maxMultilineLines int
+	pending                              *logicalRecord
+	physicalLineNumber                   int64
+}
+
+func (r *logRecordReader) next() (logicalRecord, error) {
+	first, err := r.nextPhysical()
+	if err != nil {
+		return logicalRecord{}, err
+	}
+	if r.start == nil {
+		return first, nil
+	}
+
+	parts := []string{first.text}
+	hits := append([]bool(nil), first.hits...)
+	bytesRead := first.bytes
+	lines := 1
+	for {
+		next, err := r.nextPhysical()
+		if errors.Is(err, io.EOF) {
+			return mergedRecord(first.lineNumber, parts, hits, bytesRead, r.mode), nil
+		}
+		if err != nil {
+			return logicalRecord{}, err
+		}
+		overBytes := r.maxMultilineBytes > 0 && bytesRead+next.bytes > int64(r.maxMultilineBytes)
+		overLines := r.maxMultilineLines > 0 && lines >= r.maxMultilineLines
+		if r.start.MatchString(next.text) || overBytes || overLines {
+			r.pending = &next
+			return mergedRecord(first.lineNumber, parts, hits, bytesRead, r.mode), nil
+		}
+		parts = append(parts, next.text)
+		bytesRead += next.bytes
+		lines++
+		for i := range hits {
+			hits[i] = hits[i] || next.hits[i]
+		}
+	}
+}
+
+func (r *logRecordReader) nextPhysical() (logicalRecord, error) {
+	if r.pending != nil {
+		line := *r.pending
+		r.pending = nil
+		return line, nil
+	}
+	line, err := readPhysicalLine(r.ctx, r.reader, r.keywords, r.mode, r.caseSensitive, r.maxDisplayBytes)
+	if err != nil {
+		return logicalRecord{}, err
+	}
+	r.physicalLineNumber++
+	return logicalRecord{physicalLine: line, lineNumber: r.physicalLineNumber}, nil
+}
+
+func mergedRecord(lineNumber int64, parts []string, hits []bool, bytesRead int64, mode KeywordMode) logicalRecord {
+	return logicalRecord{
+		physicalLine: physicalLine{text: strings.Join(parts, "\n"), bytes: bytesRead, matched: keywordHitsMatch(hits, mode), hits: hits},
+		lineNumber:   lineNumber,
+	}
 }
 
 // readPhysicalLine 分片读取一条物理行，避免超长 JSON 日志触发 bufio.Scanner 的 token too long。
@@ -412,6 +499,11 @@ func finishPhysicalLine(display []byte, bytesRead int64, maxDisplayBytes int, un
 		text += " ... [line truncated]"
 	}
 
+	matched := keywordHitsMatch(hits, mode)
+	return physicalLine{text: text, bytes: bytesRead, matched: matched, hits: hits}
+}
+
+func keywordHitsMatch(hits []bool, mode KeywordMode) bool {
 	matched := mode != KeywordAny
 	for _, hit := range hits {
 		if mode == KeywordAny && hit {
@@ -423,7 +515,7 @@ func finishPhysicalLine(display []byte, bytesRead int64, maxDisplayBytes int, un
 			break
 		}
 	}
-	return physicalLine{text: text, bytes: bytesRead, matched: matched}
+	return matched
 }
 
 func bytesTrimLineEnding(value []byte) []byte {

@@ -28,6 +28,8 @@ func main() {
 		MaxResults:        cfg.Search.HardMaxResults,
 		MaxResponseBytes:  cfg.Search.MaxResponseBytes,
 		MaxLineBytes:      cfg.Search.MaxLineBytes,
+		MaxMultilineBytes: cfg.Search.MaxMultilineBytes,
+		MaxMultilineLines: cfg.Search.MaxMultilineLines,
 	})
 	if err != nil {
 		log.Fatalf("initialize search service: %v", err)
@@ -57,6 +59,7 @@ func processRules(configs []config.ProcessLogConfig) []search.ProcessLogRule {
 			IncludeRegex: item.IncludeRegex, ExcludeRegex: item.ExcludeRegex,
 			LogDirs: item.LogDirs, FilePatterns: item.FilePatterns,
 			MaxFiles: item.MaxFiles, MaxFileAge: maxAge,
+			MultilineStartPattern: item.Multiline.StartPattern,
 		})
 	}
 	return rules

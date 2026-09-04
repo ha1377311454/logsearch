@@ -33,18 +33,26 @@ type SearchConfig struct {
 	HardTimeout           string             `yaml:"hard_timeout"`
 	MaxResponseBytes      int64              `yaml:"max_response_bytes"`
 	MaxLineBytes          int                `yaml:"max_line_bytes"`
+	MaxMultilineBytes     int                `yaml:"max_multiline_bytes"`
+	MaxMultilineLines     int                `yaml:"max_multiline_lines"`
 }
 
 type ProcessLogConfig struct {
-	Name         string   `yaml:"name"`
-	CommRegex    string   `yaml:"comm_regex"`
-	CmdlineRegex string   `yaml:"cmdline_regex"`
-	IncludeRegex string   `yaml:"include_regex"`
-	ExcludeRegex string   `yaml:"exclude_regex"`
-	LogDirs      []string `yaml:"log_dirs"`
-	FilePatterns []string `yaml:"file_patterns"`
-	MaxFiles     int      `yaml:"max_files"`
-	MaxFileAge   string   `yaml:"max_file_age"`
+	Name         string          `yaml:"name"`
+	CommRegex    string          `yaml:"comm_regex"`
+	CmdlineRegex string          `yaml:"cmdline_regex"`
+	IncludeRegex string          `yaml:"include_regex"`
+	ExcludeRegex string          `yaml:"exclude_regex"`
+	LogDirs      []string        `yaml:"log_dirs"`
+	FilePatterns []string        `yaml:"file_patterns"`
+	MaxFiles     int             `yaml:"max_files"`
+	MaxFileAge   string          `yaml:"max_file_age"`
+	Multiline    MultilineConfig `yaml:"multiline"`
+}
+
+// MultilineConfig 定义多行日志的起始行；不匹配的物理行会并入上一条日志记录。
+type MultilineConfig struct {
+	StartPattern string `yaml:"start_pattern"`
 }
 
 type SecurityConfig struct {
@@ -107,6 +115,12 @@ func (c *Config) defaults() {
 	}
 	if c.Search.MaxLineBytes == 0 {
 		c.Search.MaxLineBytes = 1 << 20
+	}
+	if c.Search.MaxMultilineBytes == 0 {
+		c.Search.MaxMultilineBytes = 4 << 20
+	}
+	if c.Search.MaxMultilineLines == 0 {
+		c.Search.MaxMultilineLines = 1000
 	}
 }
 

@@ -4,6 +4,7 @@ import (
 	"context"
 	"os"
 	"path/filepath"
+	"regexp"
 	"strings"
 	"testing"
 	"time"
@@ -128,6 +129,47 @@ func TestSearchUnlimitedLineReturnsCompleteText(t *testing.T) {
 	}
 	if result.Matches[0].Text != line {
 		t.Fatalf("expected complete oversized line, got %d of %d bytes", len(result.Matches[0].Text), len(line))
+	}
+}
+
+func TestScanFileMergesMultilineBeforeKeywordMatching(t *testing.T) {
+	root := t.TempDir()
+	path := filepath.Join(root, "application.log")
+	content := strings.Join([]string{
+		"2026-09-04 10:00:00.001 ERROR request-123 failed",
+		"java.lang.IllegalStateException: payment unavailable",
+		"\tat example.Service.call(Service.java:42)",
+		"2026-09-04 10:00:01.002 INFO next record",
+	}, "\n") + "\n"
+	if err := os.WriteFile(path, []byte(content), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	service := &Service{opts: Options{
+		MaxLineBytes:      1 << 20,
+		MaxMultilineBytes: 4 << 20,
+		MaxMultilineLines: 1000,
+	}}
+	file := File{Path: path, OpenPath: path, multilineStart: regexp.MustCompile(`^[0-9]{4}-[0-9]{2}-[0-9]{2} `)}
+	matches, _, _, err := service.scanFile(context.Background(), file, Request{Mode: KeywordAll}, []string{"request-123", "payment unavailable"}, 10, 1<<20)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(matches) != 1 {
+		t.Fatalf("expected one merged match, got %d", len(matches))
+	}
+	want := strings.Join(strings.Split(strings.TrimSuffix(content, "\n"), "\n")[:3], "\n")
+	if matches[0].Text != want {
+		t.Fatalf("unexpected merged log\ngot:  %q\nwant: %q", matches[0].Text, want)
+	}
+	if matches[0].LineNumber != 1 {
+		t.Fatalf("expected merged record to start at physical line 1, got %d", matches[0].LineNumber)
+	}
+}
+
+func TestCompileProcessRulesRejectsInvalidMultilinePattern(t *testing.T) {
+	_, err := compileProcessRules([]ProcessLogRule{{Name: "example", MultilineStartPattern: "["}})
+	if err == nil || !strings.Contains(err.Error(), "multiline.start_pattern") {
+		t.Fatalf("expected multiline pattern error, got %v", err)
 	}
 }
 
