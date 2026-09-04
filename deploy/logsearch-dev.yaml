@@ -11,38 +11,65 @@ metadata:
 data:
   agent.yaml: |
     server:
+      # Agent HTTP/Connect 服务监听地址；":9000" 表示监听容器内所有网卡的 9000 端口。
       listen: ":9000"
+      # 返回结果中标识日志来源节点；留空时优先读取下方 NODE_NAME 环境变量。
       node_name: ""
     search:
+      # kubelet Pod 日志允许扫描的根目录；必须与下方只读 hostPath 挂载路径一致。
       roots: ["/host/var/log/pods"]
+      # roots 下允许读取的文件扩展名白名单，防止查询任意类型文件。
       allowed_extensions: [".log"]
       # Agent 只读取 Pod 名包含下列任一关键词的日志；空数组表示不过滤。
       pod_name_contains: ["example-api"]
+      # 容器内文件日志规则；Agent 通过宿主机进程和 /proc/<pid>/root 定位容器文件。
       process_logs:
+        # 规则名称，会作为 source_rule 返回，便于识别命中了哪条采集规则。
         - name: example-api
+          # 匹配进程 comm 名称的正则；与 cmdline_regex 同时配置时两者必须同时命中。
           comm_regex: '^java$'
+          # 匹配完整进程命令行的正则，用于限定具体 Java 服务。
           cmdline_regex: 'example-api'
+          # 只保留进程当前打开且容器内路径匹配该正则的日志文件。
           include_regex: '^/var/log/example-api/example-api(?:\..+)?\.log$'
+          # 从 include_regex 的已打开文件结果中排除匹配项；空字符串表示不排除。
+          exclude_regex: ''
+          # 在匹配进程的 /proc/<pid>/root 下继续发现轮转日志的容器内绝对目录。
           log_dirs: ["/var/log/example-api"]
+          # log_dirs 下允许发现的文件名 glob；客户端 file_patterns 只能进一步缩小范围。
           file_patterns: ["example-api*.log"]
+          # 每条规则最多保留最近修改的文件数量，避免轮转文件过多导致扫描失控。
           max_files: 20
+          # 排除修改时间早于该时长的文件；使用 Go duration 格式，如 48h、30m。
           max_file_age: 48h
+          # 将异常堆栈等多行内容先合并为一条逻辑日志，再进行关键词和上下文匹配。
           multiline:
+            # 匹配该正则的物理行开始一条新日志；不匹配的行追加到上一条日志。
             start_pattern: '^(?:(?:(?:[0-9]{4}[-/])?[0-9]{2}[-/][0-9]{2})[ T])?[0-9]{2}:[0-9]{2}:[0-9]{2}(?:[.,][0-9]{3,9})?(?:Z|[+-][0-9]{2}:?[0-9]{2})?'
+      # 单个 Agent 同时执行的搜索请求上限；超过上限的请求会被拒绝。
       max_concurrent_searches: 4
+      # 单次请求最多扫描的候选文件数，是客户端无法突破的服务端保护上限。
       max_files_per_request: 200
+      # 客户端未传 max_results 时采用的默认命中条数。
       default_max_results: 5000
+      # 客户端即使传入更大 max_results，也会被压到此硬上限。
       hard_max_results: 50000
+      # 客户端未传 timeout_seconds 时使用的默认搜索超时。
       default_timeout: 15s
+      # 客户端请求的超时时间不能超过该硬上限。
       hard_timeout: 60s
       # 开发环境需要查看完整日志，-1 表示不限制响应总大小和单行展示大小。
       max_response_bytes: -1
+      # 单条物理日志允许返回的最大字节数；-1 表示不限制。
       max_line_bytes: -1
+      # 合并后单条多行日志允许占用的最大字节数；-1 表示不限制。
       max_multiline_bytes: -1
+      # 一条多行日志最多合并的物理行数；-1 表示不限制。
       max_multiline_lines: -1
     security:
       # 开发环境不启用鉴权。
       token: ""
+      # 允许访问 Agent 的浏览器 Origin；"*" 仅适合受控开发环境，生产应收紧。
       allowed_origins: ["*"]
 ---
 apiVersion: apps/v1
@@ -65,8 +92,10 @@ spec:
       containers:
         - name: agent
           image: ghcr.io/ha1377311454/logsearch:latest
+          # 指定容器内的 Agent 配置文件路径。
           args: ["-config", "/etc/logsearch/agent.yaml"]
           env:
+            # 将 Kubernetes 节点名注入配置，作为查询结果中的 node_name。
             - name: NODE_NAME
               valueFrom:
                 fieldRef:
@@ -84,6 +113,7 @@ spec:
               path: /healthz
               port: http
           resources:
+            # requests 用于调度容量评估；limits 防止大范围日志扫描耗尽节点资源。
             requests:
               cpu: 20m
               memory: 32Mi
@@ -113,9 +143,11 @@ spec:
             seccompProfile:
               type: RuntimeDefault
           volumeMounts:
+            # 只读挂载 ConfigMap，提供 agent.yaml。
             - name: config
               mountPath: /etc/logsearch
               readOnly: true
+            # 只读挂载宿主机 /var/log，供 roots 扫描 kubelet Pod 日志。
             - name: host-var-log
               mountPath: /host/var/log
               readOnly: true
@@ -134,7 +166,9 @@ metadata:
   name: logsearch-agent
   namespace: logsearch
 spec:
+  # 开发环境通过每个节点的 30900 端口直接访问对应节点上的 Agent。
   type: NodePort
+  # 只把流量发给当前节点的 Agent，保证“节点地址 -> 本节点日志”的对应关系。
   externalTrafficPolicy: Local
   selector:
     app: logsearch-agent
@@ -142,4 +176,5 @@ spec:
     - name: http
       port: 9000
       targetPort: http
+      # 集群每个节点对外暴露的固定端口；需确保防火墙仅允许可信来源。
       nodePort: 30900

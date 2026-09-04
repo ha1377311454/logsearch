@@ -221,9 +221,10 @@ class LogSearchPanel(private val project: Project) {
 
     private fun formatMatch(display: DisplayMatch): String {
         val match = display.match
+        val fileName = match.file.trimEnd('/').substringAfterLast('/').ifBlank { "-" }
         val header = "${display.sourceNode} · ${match.sourceType.ifBlank { "kubelet" }} · " +
             "${match.namespace.ifBlank { "-" }}/${match.pod.ifBlank { "-" }}/${match.container.ifBlank { "-" }} · " +
-            "${match.file.ifBlank { "-" }}:${match.lineNumber}"
+            "$fileName:${match.lineNumber}"
         val timestamp = match.timestamp.takeIf(String::isNotBlank)?.let { "$it\n" }.orEmpty()
         return "$header\n$timestamp${(match.before + match.text + match.after).joinToString("\n")}"
     }
