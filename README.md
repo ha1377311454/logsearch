@@ -2,13 +2,14 @@
 
 LogSearch 从 Chrome DevTools 中提取前端请求的 Request ID，并并发查询 Kubernetes 各节点的容器日志。
 
-完整设计见 [docs/design.md](docs/design.md)，部署说明见 [docs/deployment.md](docs/deployment.md)，插件使用说明见 [docs/extension.md](docs/extension.md)。
+完整设计见 [docs/design.md](docs/design.md)，部署说明见 [docs/deployment.md](docs/deployment.md)，Chrome 插件使用说明见 [docs/extension.md](docs/extension.md)，IDEA 插件开发和使用说明见 [idea-plugin/README.md](idea-plugin/README.md)。
 
 ## 组件
 
 - `logsearch-agent`：Connect/gRPC/gRPC-Web 日志查询服务，以 DaemonSet 运行。
 - `logsearch-cli`：命令行查询客户端。
 - `extension`：Chrome Manifest V3 DevTools 扩展。
+- `idea-plugin`：手工输入关键词、配置节点并查询日志的 IntelliJ IDEA 插件。
 
 Agent 同时支持 kubelet `/var/log/pods` 标准输出日志，以及通过宿主机进程 `/proc/<pid>/root` 读取容器内部文件日志和轮转日志。进程日志规则可通过 `multiline.start_pattern` 将 Java 异常堆栈等多行内容合并为一条日志后再执行关键词匹配。
 

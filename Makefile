@@ -3,7 +3,7 @@ DIST_DIR ?= dist
 VERSION ?=
 LDFLAGS ?= -s -w
 
-.PHONY: generate build build-linux build-linux-amd64 build-linux-arm64 clean tag
+.PHONY: generate build build-linux build-linux-amd64 build-linux-arm64 package-extension clean tag
 
 generate:
 	protoc --go_out=. --go_opt=paths=source_relative \
@@ -28,6 +28,11 @@ build-linux-arm64:
 		-o $(DIST_DIR)/logsearch-agent-linux-arm64 ./cmd/logsearch-agent
 	CGO_ENABLED=0 GOOS=linux GOARCH=arm64 $(GO) build -trimpath -ldflags="$(LDFLAGS)" \
 		-o $(DIST_DIR)/logsearch-cli-linux-arm64 ./cmd/logsearch-cli
+
+package-extension:
+	mkdir -p $(DIST_DIR)
+	rm -f $(DIST_DIR)/logsearch-extension.zip
+	cd extension && zip -r ../$(DIST_DIR)/logsearch-extension.zip . -x '*.DS_Store'
 
 clean:
 	rm -rf $(DIST_DIR)
