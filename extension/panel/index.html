@@ -10,13 +10,31 @@
   <main class="page">
     <header class="topbar">
       <div><p class="eyebrow">DISTRIBUTED LOG TRACE</p><h1>LogSearch</h1></div>
-      <button id="settings" class="ghost">连接设置</button>
+      <div class="topbar-actions">
+        <span class="environment-label">环境</span>
+        <select id="environmentSwitcher" class="environment-switcher" aria-label="切换连接环境"></select>
+        <button id="quickNewEnvironment" class="icon-button compact-add" title="新建环境" aria-label="新建环境">＋</button>
+        <button id="settings" class="ghost">连接设置</button>
+      </div>
     </header>
     <section class="network-layout">
       <aside class="request-pane" aria-label="Network 请求列表">
         <div class="request-toolbar">
-          <input id="requestFilter" type="search" placeholder="筛选请求" aria-label="筛选请求">
+          <button id="clearRequests" class="icon-button clear-requests" type="button" title="清空请求列表" aria-label="清空请求列表">⊘</button>
+          <input id="requestFilter" type="search" placeholder="过滤请求，例如 method:POST status:2xx -domain:static.example.com" aria-label="请求过滤规则" autocomplete="off" spellcheck="false">
+          <button id="saveFilter" class="icon-button filter-action" title="收藏当前过滤规则" aria-label="收藏当前过滤规则">☆</button>
           <button id="refresh" class="icon-button" title="刷新请求" aria-label="刷新请求">↻</button>
+        </div>
+        <div class="filter-meta">
+          <div id="filterFavorites" class="filter-favorites" aria-label="收藏的过滤规则"></div>
+          <button id="filterHelp" class="filter-help" title="过滤语法" aria-label="查看过滤语法">?</button>
+          <div id="filterHelpPopover" class="filter-help-popover" hidden>
+            <strong>请求过滤语法</strong>
+            <span>普通文本匹配名称、URL、方法和状态</span>
+            <code>method:POST status:2xx</code>
+            <code>domain:api.example.com -path:/health</code>
+            <span>多个条件是 AND 关系，前缀 <code>-</code> 表示排除。</span>
+          </div>
         </div>
         <div class="request-columns" aria-hidden="true">
           <span>名称</span><span>方法</span><span>状态</span>
@@ -27,7 +45,16 @@
       <div class="query-pane">
         <div id="selectedRequest" class="selected-request muted">请从左侧选择一个请求，或直接输入关键词</div>
         <section class="query-form form">
-          <label>Request ID / 关键词<input id="keywords" type="text" placeholder="选择请求后自动提取，也可以输入多个关键词并用逗号分隔"></label>
+          <label>Request ID / 关键词
+            <div class="keyword-input-row">
+              <input id="keywords" type="text" placeholder="选择请求后自动提取，也可以输入多个关键词并用逗号分隔">
+              <button id="saveKeyword" type="button" class="keyword-save" title="收藏常用关键词">☆ 收藏关键词</button>
+            </div>
+          </label>
+          <div class="keyword-favorites-row">
+            <span class="keyword-favorites-title">常用关键词</span>
+            <div id="keywordFavorites" class="keyword-favorites" aria-label="收藏的常用关键词"></div>
+          </div>
           <div class="grid-four">
             <label>匹配方式<select id="mode"><option value="KEYWORD_MODE_ALL">全部关键词在同一行</option><option value="KEYWORD_MODE_ANY">任一关键词</option></select></label>
             <label>前文行数<input id="before" type="number" min="0" max="100" value="0"></label>
@@ -37,6 +64,12 @@
           <div class="actions"><button id="search" class="primary">查询所有节点</button><span id="summary" class="muted"></span></div>
         </section>
         <section id="errors" class="errors"></section>
+        <section id="resultTools" class="result-tools" hidden>
+          <span class="result-filter-icon" aria-hidden="true">⌕</span>
+          <input id="resultFilter" type="search" placeholder="快捷过滤已返回结果，多个关键词用空格分隔" aria-label="过滤查询结果" autocomplete="off" spellcheck="false">
+          <span id="resultFilterCount" class="muted"></span>
+          <button id="clearResultFilter" type="button" class="ghost" hidden>清除</button>
+        </section>
         <section id="results" class="results"></section>
       </div>
     </section>
@@ -50,21 +83,39 @@
       <button id="closeSettings" class="icon-button" aria-label="关闭设置">×</button>
     </header>
     <section class="dialog-body form">
-      <label>节点地址
-        <textarea id="settingsNodes" rows="6" spellcheck="false" placeholder="node-01 http://10.0.0.11:30900&#10;node-02 http://10.0.0.12:30900"></textarea>
-        <span class="field-help">每行一个节点，格式为“名称 地址”；也可以只填写地址。</span>
-      </label>
-      <label>Bearer Token
-        <input id="settingsToken" type="password" autocomplete="off" placeholder="无鉴权时留空">
-      </label>
-      <div class="grid-two">
-        <label>请求超时（秒）<input id="settingsTimeout" type="number" min="1" max="60"></label>
-        <label>并发节点数<input id="settingsConcurrency" type="number" min="1" max="20"></label>
+      <section class="settings-section environment-section">
+        <div class="section-heading"><strong>环境</strong><span>不同集群使用独立配置</span></div>
+        <div class="environment-editor">
+          <select id="settingsEnvironment" aria-label="设置中的连接环境"></select>
+          <button id="setDefaultEnvironment" type="button" title="下次打开 LogSearch 时优先使用此环境">设为默认</button>
+          <button id="newEnvironment" type="button">＋ 新建</button>
+          <button id="deleteEnvironment" type="button" class="danger-button">删除</button>
+        </div>
+      </section>
+      <div class="settings-columns">
+        <section class="settings-section node-section">
+          <div class="section-heading"><strong>Agent 节点</strong><span>每行一个</span></div>
+          <textarea id="settingsNodes" rows="7" aria-label="节点地址" spellcheck="false" placeholder="node-01 http://10.0.0.11:30900&#10;node-02 http://10.0.0.12:30900"></textarea>
+          <span class="field-help">格式为“名称 地址”，名称可省略。</span>
+        </section>
+        <section class="settings-section connection-section">
+          <div class="section-heading"><strong>连接参数</strong></div>
+          <label>Bearer Token<input id="settingsToken" type="password" autocomplete="off" placeholder="无鉴权时留空"></label>
+          <div class="grid-two compact-grid">
+            <label>超时（秒）<input id="settingsTimeout" type="number" min="1" max="60"></label>
+            <label>并发数<input id="settingsConcurrency" type="number" min="1" max="20"></label>
+          </div>
+          <label>Request ID 请求头
+            <input id="settingsHeaders" type="text" placeholder="x-request-id, x-trace-id, trace-id, traceparent">
+            <span class="field-help">按从左到右顺序提取，逗号分隔。</span>
+          </label>
+        </section>
       </div>
-      <label>Request ID 请求头
-        <input id="settingsHeaders" type="text" placeholder="x-request-id, x-trace-id, trace-id, traceparent">
-        <span class="field-help">按从左到右的顺序提取，使用逗号分隔。</span>
-      </label>
+      <section class="config-transfer">
+        <div><strong>备份配置</strong><span>包含全部环境、Token 和收藏。</span></div>
+        <div><button id="importConfig" type="button">导入 JSON</button><button id="exportConfig" type="button">导出 JSON</button></div>
+        <input id="configFile" type="file" accept="application/json,.json" hidden>
+      </section>
     </section>
     <footer class="dialog-actions">
       <span id="settingsStatus" class="muted" role="status"></span>
@@ -73,6 +124,54 @@
         <button id="saveSettings" class="primary">保存</button>
       </div>
     </footer>
+  </dialog>
+  <dialog id="environmentDialog" class="save-filter-dialog">
+    <form id="environmentForm" method="dialog">
+      <header class="dialog-head">
+        <div><h2>新建连接环境</h2><p>每个环境保存独立的节点、Token 和连接参数。</p></div>
+        <button id="closeEnvironmentDialog" type="button" class="icon-button" aria-label="关闭">×</button>
+      </header>
+      <section class="dialog-body form">
+        <label>环境名称<input id="environmentName" maxlength="30" autocomplete="off" placeholder="例如：开发环境"></label>
+        <label class="checkbox-label"><input id="copyEnvironment" type="checkbox">复制当前环境的连接配置</label>
+      </section>
+      <footer class="dialog-actions">
+        <span id="environmentStatus" class="muted" role="status"></span>
+        <div><button id="cancelEnvironment" type="button">取消</button><button class="primary" type="submit">创建</button></div>
+      </footer>
+    </form>
+  </dialog>
+  <dialog id="saveFilterDialog" class="save-filter-dialog">
+    <form id="saveFilterForm" method="dialog">
+      <header class="dialog-head">
+        <div><h2>收藏过滤规则</h2><p>保存后可在请求列表上方快速切换。</p></div>
+        <button id="closeSaveFilter" type="button" class="icon-button" aria-label="关闭">×</button>
+      </header>
+      <section class="dialog-body form">
+        <label>名称<input id="filterFavoriteName" maxlength="30" autocomplete="off" placeholder="例如：仅看 API 请求"></label>
+        <label>规则<input id="filterFavoriteQuery" spellcheck="false"></label>
+      </section>
+      <footer class="dialog-actions">
+        <span id="filterFavoriteStatus" class="muted" role="status"></span>
+        <div><button id="cancelSaveFilter" type="button">取消</button><button class="primary" type="submit">保存</button></div>
+      </footer>
+    </form>
+  </dialog>
+  <dialog id="saveKeywordDialog" class="save-filter-dialog">
+    <form id="saveKeywordForm" method="dialog">
+      <header class="dialog-head">
+        <div><h2>收藏常用关键词</h2><p>选择后会追加到 Request ID 后，不会覆盖已有内容。</p></div>
+        <button id="closeSaveKeyword" type="button" class="icon-button" aria-label="关闭">×</button>
+      </header>
+      <section class="dialog-body form">
+        <label>名称<input id="keywordFavoriteName" maxlength="30" autocomplete="off" placeholder="例如：慢 SQL"></label>
+        <label>关键词<input id="keywordFavoriteValue" autocomplete="off" spellcheck="false" placeholder="例如：CK_SQL"></label>
+      </section>
+      <footer class="dialog-actions">
+        <span id="keywordFavoriteStatus" class="muted" role="status"></span>
+        <div><button id="cancelSaveKeyword" type="button">取消</button><button class="primary" type="submit">保存</button></div>
+      </footer>
+    </form>
   </dialog>
   <script src="index.js"></script>
 </body>

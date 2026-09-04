@@ -10,9 +10,10 @@ import (
 	"strings"
 	"time"
 
-	"connectrpc.com/connect"
 	logsearchv1 "logsearch/api/logsearch/v1"
 	"logsearch/api/logsearch/v1/logsearchv1connect"
+
+	"connectrpc.com/connect"
 )
 
 func main() {
