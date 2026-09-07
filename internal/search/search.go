@@ -2,6 +2,7 @@ package search
 
 import (
 	"bufio"
+	"bytes"
 	"context"
 	"errors"
 	"fmt"
@@ -12,6 +13,7 @@ import (
 	"regexp"
 	"sort"
 	"strings"
+	"sync"
 	"time"
 )
 
@@ -29,6 +31,7 @@ type Options struct {
 	ProcessLogs       []ProcessLogRule
 	ProcRoot          string
 	MaxFiles          int
+	MaxParallelFiles  int
 	MaxResults        int
 	MaxResponseBytes  int64
 	MaxLineBytes      int
@@ -158,37 +161,77 @@ func (s *Service) Search(ctx context.Context, req Request) (Result, error) {
 		return Result{}, err
 	}
 	result := Result{Truncated: filesTruncated}
+	var responseSize int64
 	result.DiscoveredFiles = len(files)
 	if filesTruncated {
 		result.TruncationReason = "file limit reached"
 	}
-	for _, file := range files {
+	parallelism := s.opts.MaxParallelFiles
+	if parallelism <= 0 {
+		parallelism = 1
+	}
+	for batchStart := 0; batchStart < len(files); batchStart += parallelism {
 		if err := ctx.Err(); err != nil {
 			result.Truncated = true
 			result.TruncationReason = "query timeout or cancellation"
 			return result, nil
 		}
-		matches, bytesRead, interrupted, err := s.scanFile(ctx, file, req, keywords, maxResults-len(result.Matches), maxBytes-resultSize(result.Matches))
-		result.ScannedFiles++
-		result.ScannedBytes += bytesRead
-		if err != nil {
-			return result, err
+		batchEnd := min(batchStart+parallelism, len(files))
+		type scanResult struct {
+			matches     []Match
+			bytesRead   int64
+			interrupted bool
+			err         error
 		}
-		result.Matches = append(result.Matches, matches...)
-		if interrupted {
-			result.Truncated = true
-			result.TruncationReason = "query timeout or cancellation"
-			break
+		results := make([]scanResult, batchEnd-batchStart)
+		var wg sync.WaitGroup
+		remainingResults := maxResults - len(result.Matches)
+		remainingBytes := maxBytes - responseSize
+		for i := range results {
+			wg.Add(1)
+			go func(i int) {
+				defer wg.Done()
+				results[i].matches, results[i].bytesRead, results[i].interrupted, results[i].err = s.scanFile(
+					ctx, files[batchStart+i], req, keywords, remainingResults, remainingBytes,
+				)
+			}(i)
+		}
+		wg.Wait()
+		for _, scanned := range results {
+			result.ScannedFiles++
+			result.ScannedBytes += scanned.bytesRead
+			if scanned.err != nil {
+				return result, scanned.err
+			}
+			for _, match := range scanned.matches {
+				matchBytes := matchSize(match)
+				if len(result.Matches) >= maxResults || responseSize+matchBytes > maxBytes {
+					result.Truncated = true
+					if len(result.Matches) >= maxResults {
+						result.TruncationReason = "result limit reached"
+					} else {
+						result.TruncationReason = "response byte limit reached"
+					}
+					return result, nil
+				}
+				result.Matches = append(result.Matches, match)
+				responseSize += matchBytes
+			}
+			if scanned.interrupted {
+				result.Truncated = true
+				result.TruncationReason = "query timeout or cancellation"
+				return result, nil
+			}
 		}
 		if len(result.Matches) >= maxResults {
 			result.Truncated = true
 			result.TruncationReason = "result limit reached"
-			break
+			return result, nil
 		}
-		if resultSize(result.Matches) >= maxBytes {
+		if responseSize >= maxBytes {
 			result.Truncated = true
 			result.TruncationReason = "response byte limit reached"
-			break
+			return result, nil
 		}
 	}
 	return result, nil
@@ -273,7 +316,7 @@ func (s *Service) scanFile(ctx context.Context, file File, req Request, keywords
 	var responseBytes int64
 	var lineNumber int64
 	records := &logRecordReader{
-		ctx: ctx, reader: bufio.NewReaderSize(f, 64*1024), keywords: keywords,
+		ctx: ctx, reader: bufio.NewReaderSize(f, 64*1024), matcher: newKeywordMatcher(keywords, req.Mode, req.CaseSensitive),
 		mode: req.Mode, caseSensitive: req.CaseSensitive, maxDisplayBytes: s.opts.MaxLineBytes,
 		start: file.multilineStart, maxMultilineBytes: s.opts.MaxMultilineBytes, maxMultilineLines: s.opts.MaxMultilineLines,
 	}
@@ -349,7 +392,7 @@ type logicalRecord struct {
 type logRecordReader struct {
 	ctx                                  context.Context
 	reader                               *bufio.Reader
-	keywords                             []string
+	matcher                              *keywordMatcher
 	mode                                 KeywordMode
 	caseSensitive                        bool
 	maxDisplayBytes                      int
@@ -401,7 +444,7 @@ func (r *logRecordReader) nextPhysical() (logicalRecord, error) {
 		r.pending = nil
 		return line, nil
 	}
-	line, err := readPhysicalLine(r.ctx, r.reader, r.keywords, r.mode, r.caseSensitive, r.maxDisplayBytes)
+	line, err := readPhysicalLineWithMatcher(r.ctx, r.reader, r.matcher, r.maxDisplayBytes)
 	if err != nil {
 		return logicalRecord{}, err
 	}
@@ -419,6 +462,33 @@ func mergedRecord(lineNumber int64, parts []string, hits []bool, bytesRead int64
 // readPhysicalLine 分片读取一条物理行，避免超长 JSON 日志触发 bufio.Scanner 的 token too long。
 // maxDisplayBytes 仅限制返回给客户端的文本；关键词匹配仍覆盖整条物理行。
 func readPhysicalLine(ctx context.Context, reader *bufio.Reader, keywords []string, mode KeywordMode, caseSensitive bool, maxDisplayBytes int) (physicalLine, error) {
+	return readPhysicalLineWithMatcher(ctx, reader, newKeywordMatcher(keywords, mode, caseSensitive), maxDisplayBytes)
+}
+
+type keywordMatcher struct {
+	keywords      [][]byte
+	mode          KeywordMode
+	caseSensitive bool
+	asciiFold     bool
+	maxBytes      int
+}
+
+func newKeywordMatcher(keywords []string, mode KeywordMode, caseSensitive bool) *keywordMatcher {
+	m := &keywordMatcher{mode: mode, caseSensitive: caseSensitive, asciiFold: !caseSensitive}
+	for _, keyword := range keywords {
+		if !caseSensitive {
+			keyword = strings.ToLower(keyword)
+		}
+		m.keywords = append(m.keywords, []byte(keyword))
+		m.maxBytes = max(m.maxBytes, len(keyword))
+		if !isASCII(keyword) {
+			m.asciiFold = false
+		}
+	}
+	return m
+}
+
+func readPhysicalLineWithMatcher(ctx context.Context, reader *bufio.Reader, matcher *keywordMatcher, maxDisplayBytes int) (physicalLine, error) {
 	unlimitedDisplay := maxDisplayBytes < 0
 	if maxDisplayBytes == 0 {
 		maxDisplayBytes = 1 << 20
@@ -429,14 +499,8 @@ func readPhysicalLine(ctx context.Context, reader *bufio.Reader, keywords []stri
 		displayCapacity = min(maxDisplayBytes, displayCapacity)
 	}
 	display := make([]byte, 0, displayCapacity)
-	hits := make([]bool, len(keywords))
-	maxKeywordBytes := 0
-	for _, keyword := range keywords {
-		if len(keyword) > maxKeywordBytes {
-			maxKeywordBytes = len(keyword)
-		}
-	}
-	overlap := ""
+	hits := make([]bool, len(matcher.keywords))
+	var overlap []byte
 	var bytesRead int64
 
 	for {
@@ -456,39 +520,106 @@ func readPhysicalLine(ctx context.Context, reader *bufio.Reader, keywords []stri
 				display = append(display, fragment[:remaining]...)
 			}
 
-			searchFragment := string(fragment)
-			if !caseSensitive {
-				searchFragment = strings.ToLower(searchFragment)
+			searchText := fragment
+			if len(overlap) > 0 {
+				searchText = append(append(make([]byte, 0, len(overlap)+len(fragment)), overlap...), fragment...)
 			}
-			searchText := overlap + searchFragment
-			for i, keyword := range keywords {
-				if !hits[i] && strings.Contains(searchText, keyword) {
+			for i, keyword := range matcher.keywords {
+				if !hits[i] && matcher.contains(searchText, keyword) {
 					hits[i] = true
 				}
 			}
-			if maxKeywordBytes > 1 {
-				keep := maxKeywordBytes - 1
+			if matcher.maxBytes > 1 {
+				keep := matcher.maxBytes - 1
 				if keep > len(searchText) {
 					keep = len(searchText)
 				}
-				overlap = searchText[len(searchText)-keep:]
+				overlap = append(overlap[:0], searchText[len(searchText)-keep:]...)
 			}
 		}
 
 		switch {
 		case err == nil:
-			return finishPhysicalLine(display, bytesRead, maxDisplayBytes, unlimitedDisplay, hits, mode), nil
+			return finishPhysicalLine(display, bytesRead, maxDisplayBytes, unlimitedDisplay, hits, matcher.mode), nil
 		case errors.Is(err, bufio.ErrBufferFull):
 			continue
 		case errors.Is(err, io.EOF):
 			if bytesRead == 0 {
 				return physicalLine{}, io.EOF
 			}
-			return finishPhysicalLine(display, bytesRead, maxDisplayBytes, unlimitedDisplay, hits, mode), nil
+			return finishPhysicalLine(display, bytesRead, maxDisplayBytes, unlimitedDisplay, hits, matcher.mode), nil
 		default:
 			return physicalLine{}, err
 		}
 	}
+}
+
+func (m *keywordMatcher) contains(text, keyword []byte) bool {
+	if m.caseSensitive {
+		return bytes.Contains(text, keyword)
+	}
+	if m.asciiFold {
+		return containsASCIIFold(text, keyword)
+	}
+	return strings.Contains(strings.ToLower(string(text)), string(keyword))
+}
+
+func containsASCIIFold(text, keyword []byte) bool {
+	if len(keyword) == 0 {
+		return true
+	}
+	for offset := 0; offset+len(keyword) <= len(text); {
+		lastStart := len(text) - len(keyword)
+		start := indexFoldedByte(text[offset:lastStart+1], keyword[0])
+		if start < 0 {
+			return false
+		}
+		start += offset
+		matched := true
+		for i, want := range keyword {
+			if lowerASCII(text[start+i]) != want {
+				matched = false
+				break
+			}
+		}
+		if matched {
+			return true
+		}
+		offset = start + 1
+	}
+	return false
+}
+
+func indexFoldedByte(text []byte, lower byte) int {
+	upper := lower
+	if lower >= 'a' && lower <= 'z' {
+		upper = lower - ('a' - 'A')
+	}
+	lowerIndex := bytes.IndexByte(text, lower)
+	if upper == lower {
+		return lowerIndex
+	}
+	upperIndex := bytes.IndexByte(text, upper)
+	if lowerIndex < 0 || (upperIndex >= 0 && upperIndex < lowerIndex) {
+		return upperIndex
+	}
+	return lowerIndex
+}
+
+func lowerASCII(value byte) byte {
+	if value >= 'A' && value <= 'Z' {
+		return value + ('a' - 'A')
+	}
+	return value
+}
+
+func isASCII(value string) bool {
+	for i := 0; i < len(value); i++ {
+		if value[i] >= 0x80 {
+			return false
+		}
+	}
+	return true
 }
 
 func finishPhysicalLine(display []byte, bytesRead int64, maxDisplayBytes int, unlimitedDisplay bool, hits []bool, mode KeywordMode) physicalLine {

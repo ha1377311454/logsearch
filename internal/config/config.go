@@ -26,6 +26,7 @@ type SearchConfig struct {
 	PodNameContains       []string           `yaml:"pod_name_contains"`
 	ProcessLogs           []ProcessLogConfig `yaml:"process_logs"`
 	MaxConcurrentSearches int                `yaml:"max_concurrent_searches"`
+	MaxParallelFiles      int                `yaml:"max_parallel_files"`
 	MaxFilesPerRequest    int                `yaml:"max_files_per_request"`
 	DefaultMaxResults     int                `yaml:"default_max_results"`
 	HardMaxResults        int                `yaml:"hard_max_results"`
@@ -95,6 +96,9 @@ func (c *Config) defaults() {
 	if c.Search.MaxConcurrentSearches <= 0 {
 		c.Search.MaxConcurrentSearches = 4
 	}
+	if c.Search.MaxParallelFiles <= 0 {
+		c.Search.MaxParallelFiles = 4
+	}
 	if c.Search.MaxFilesPerRequest <= 0 {
 		c.Search.MaxFilesPerRequest = 200
 	}
@@ -133,6 +137,9 @@ func (c Config) validate() error {
 	}
 	if _, err := time.ParseDuration(c.Search.HardTimeout); err != nil {
 		return fmt.Errorf("invalid search.hard_timeout: %w", err)
+	}
+	if c.Search.MaxParallelFiles > 32 {
+		return fmt.Errorf("search.max_parallel_files must not exceed 32")
 	}
 	for _, rule := range c.Search.ProcessLogs {
 		if rule.Name == "" || (rule.CommRegex == "" && rule.CmdlineRegex == "") {

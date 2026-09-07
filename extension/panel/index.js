@@ -737,11 +737,15 @@ function render(nodes) {
   const matches = successful.flatMap((node) => (node.data.matches || []).map((match) => ({ ...match, sourceNode: node.node })));
   const discoveredFiles = successful.reduce((total, node) => total + Number(node.data.discoveredFiles || 0), 0);
   const scannedFiles = successful.reduce((total, node) => total + Number(node.data.scannedFiles || 0), 0);
+  const scannedBytes = successful.reduce((total, node) => total + Number(node.data.scannedBytes || 0), 0);
   const elapsedMs = successful.reduce((maximum, node) => Math.max(maximum, Number(node.data.elapsedMs || node.elapsedMs || 0)), 0);
   const truncated = successful.filter((node) => node.data.truncated);
   matches.sort((a, b) => (a.timestamp || "").localeCompare(b.timestamp || "") || a.sourceNode.localeCompare(b.sourceNode));
   const truncatedText = truncated.length ? `，${truncated.length} 个节点结果被截断` : "";
-  resultSummary = `${successful.length}/${nodes.length} 个节点成功，发现 ${discoveredFiles} 个文件，扫描 ${scannedFiles} 个，命中 ${matches.length} 条，耗时 ${elapsedMs} ms${truncatedText}`;
+  const scannedSize = scannedBytes >= 1024 * 1024
+    ? `${(scannedBytes / 1024 / 1024).toFixed(1)} MB`
+    : `${(scannedBytes / 1024).toFixed(1)} KB`;
+  resultSummary = `${successful.length}/${nodes.length} 个节点成功，发现 ${discoveredFiles} 个文件，扫描 ${scannedFiles} 个（${scannedSize}），命中 ${matches.length} 条，耗时 ${elapsedMs} ms${truncatedText}`;
   showSummary(resultSummary);
   for (const node of failed) {
     const item = document.createElement("div");

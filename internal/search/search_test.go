@@ -66,6 +66,87 @@ func TestLineMatchesAnyIsCaseInsensitive(t *testing.T) {
 	}
 }
 
+func TestKeywordMatcherCaseInsensitiveASCII(t *testing.T) {
+	matcher := newKeywordMatcher([]string{"REQUEST-123", "Payment"}, KeywordAll, false)
+	for _, keyword := range matcher.keywords {
+		if !matcher.contains([]byte("request-123 PAYMENT complete"), keyword) {
+			t.Fatalf("expected case-insensitive match for %q", keyword)
+		}
+	}
+}
+
+func TestKeywordMatcherKeepsUnicodeCaseInsensitiveSemantics(t *testing.T) {
+	matcher := newKeywordMatcher([]string{"错误"}, KeywordAll, false)
+	if !matcher.contains([]byte("服务发生错误"), matcher.keywords[0]) {
+		t.Fatal("expected Unicode keyword to match")
+	}
+}
+
+func TestSearchParallelFilesKeepsNewestFileOrderAndGlobalLimit(t *testing.T) {
+	root := t.TempDir()
+	logDir := filepath.Join(root, "demo-ns_demo-pod_uid", "api")
+	if err := os.MkdirAll(logDir, 0o755); err != nil {
+		t.Fatal(err)
+	}
+	now := time.Now()
+	for i, name := range []string{"old.log", "new.log"} {
+		path := filepath.Join(logDir, name)
+		if err := os.WriteFile(path, []byte(name+" request-123\n"), 0o644); err != nil {
+			t.Fatal(err)
+		}
+		modified := now.Add(time.Duration(i) * time.Minute)
+		if err := os.Chtimes(path, modified, modified); err != nil {
+			t.Fatal(err)
+		}
+	}
+	service, err := New(Options{
+		Roots: []string{root}, AllowedExtensions: []string{".log"}, MaxFiles: 10,
+		MaxParallelFiles: 2, MaxResults: 10, MaxResponseBytes: 1 << 20, MaxLineBytes: 1 << 20,
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	result, err := service.Search(context.Background(), Request{Keywords: []string{"request-123"}, MaxResults: 1})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(result.Matches) != 1 || filepath.Base(result.Matches[0].Path) != "new.log" {
+		t.Fatalf("expected only newest file match, got %#v", result.Matches)
+	}
+	if !result.Truncated || result.TruncationReason != "result limit reached" {
+		t.Fatalf("expected global result limit truncation, got %#v", result)
+	}
+}
+
+func BenchmarkKeywordMatcherCaseInsensitive(b *testing.B) {
+	line := []byte(strings.Repeat("field=value ", 64) + "REQUEST-123 payment complete")
+	keywords := []string{"request-123", "payment", "complete"}
+	b.Run("legacy-string-lower", func(b *testing.B) {
+		b.ReportAllocs()
+		b.SetBytes(int64(len(line)))
+		for range b.N {
+			lowered := strings.ToLower(string(line))
+			for _, keyword := range keywords {
+				if !strings.Contains(lowered, keyword) {
+					b.Fatal("keyword not found")
+				}
+			}
+		}
+	})
+	b.Run("byte-ascii-fold", func(b *testing.B) {
+		matcher := newKeywordMatcher(keywords, KeywordAll, false)
+		b.ReportAllocs()
+		b.SetBytes(int64(len(line)))
+		for range b.N {
+			for _, keyword := range matcher.keywords {
+				if !matcher.contains(line, keyword) {
+					b.Fatal("keyword not found")
+				}
+			}
+		}
+	})
+}
+
 func TestSearchOversizedLineMatchesBeyondDisplayLimit(t *testing.T) {
 	root := t.TempDir()
 	logDir := filepath.Join(root, "demo-ns_demo-pod_uid", "api")

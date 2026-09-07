@@ -25,6 +25,7 @@ func main() {
 		PodNameContains:   cfg.Search.PodNameContains,
 		ProcessLogs:       processRules(cfg.Search.ProcessLogs),
 		MaxFiles:          cfg.Search.MaxFilesPerRequest,
+		MaxParallelFiles:  cfg.Search.MaxParallelFiles,
 		MaxResults:        cfg.Search.HardMaxResults,
 		MaxResponseBytes:  cfg.Search.MaxResponseBytes,
 		MaxLineBytes:      cfg.Search.MaxLineBytes,
