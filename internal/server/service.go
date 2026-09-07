@@ -3,8 +3,11 @@ package server
 import (
 	"context"
 	"errors"
+	"fmt"
+	"log"
 	"net/http"
 	"strings"
+	"sync/atomic"
 	"time"
 
 	"connectrpc.com/connect"
@@ -22,6 +25,8 @@ type Service struct {
 	hardTimeout       time.Duration
 	defaultMaxResults int
 	semaphore         chan struct{}
+	debug             bool
+	nextQueryID       atomic.Uint64
 }
 
 func New(cfg config.Config, searchService *search.Service) *Service {
@@ -32,6 +37,7 @@ func New(cfg config.Config, searchService *search.Service) *Service {
 		hardTimeout:       cfg.HardTimeout(),
 		defaultMaxResults: cfg.Search.DefaultMaxResults,
 		semaphore:         make(chan struct{}, cfg.Search.MaxConcurrentSearches),
+		debug:             cfg.DebugEnabled(),
 	}
 }
 
@@ -61,6 +67,8 @@ func (s *Service) ListLogFiles(ctx context.Context, req *connect.Request[logsear
 }
 
 func (s *Service) Search(ctx context.Context, req *connect.Request[logsearchv1.SearchRequest]) (*connect.Response[logsearchv1.SearchResponse], error) {
+	requestStarted := time.Now()
+	queryID := s.nextQueryID.Add(1)
 	select {
 	case s.semaphore <- struct{}{}:
 		defer func() { <-s.semaphore }()
@@ -87,6 +95,8 @@ func (s *Service) Search(ctx context.Context, req *connect.Request[logsearchv1.S
 		return nil, connect.NewError(connect.CodeInvalidArgument, errors.New("invalid end_time"))
 	}
 	started := time.Now()
+	s.debugf(queryID, "phase=request_start keyword_count=%d mode=%s case_sensitive=%t before=%d after=%d max_results=%d timeout_ms=%d",
+		len(req.Msg.Keywords), req.Msg.KeywordMode.String(), req.Msg.CaseSensitive, req.Msg.BeforeContext, req.Msg.AfterContext, req.Msg.MaxResults, timeout.Milliseconds())
 	maxResults := int(req.Msg.MaxResults)
 	if maxResults <= 0 {
 		maxResults = s.defaultMaxResults
@@ -102,10 +112,12 @@ func (s *Service) Search(ctx context.Context, req *connect.Request[logsearchv1.S
 		MaxBytes:      req.Msg.MaxBytes,
 		StartTime:     startTime,
 		EndTime:       endTime,
+		QueryID:       queryID,
 	})
 	if err != nil {
 		return nil, connect.NewError(connect.CodeInvalidArgument, err)
 	}
+	buildStarted := time.Now()
 	response := &logsearchv1.SearchResponse{
 		DiscoveredFiles:  int32(result.DiscoveredFiles),
 		ScannedFiles:     int32(result.ScannedFiles),
@@ -131,7 +143,15 @@ func (s *Service) Search(ctx context.Context, req *connect.Request[logsearchv1.S
 			SourceRule: match.Rule,
 		})
 	}
+	s.debugf(queryID, "phase=response_build matches=%d elapsed_ms=%d", len(response.Matches), time.Since(buildStarted).Milliseconds())
+	s.debugf(queryID, "phase=request_complete elapsed_ms=%d service_elapsed_ms=%d", time.Since(requestStarted).Milliseconds(), response.ElapsedMs)
 	return connect.NewResponse(response), nil
+}
+
+func (s *Service) debugf(queryID uint64, format string, args ...any) {
+	if s.debug {
+		log.Printf("[DEBUG-PERF] query=%d %s", queryID, fmt.Sprintf(format, args...))
+	}
 }
 
 type filterMessage interface {

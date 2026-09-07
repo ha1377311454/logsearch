@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
+	"strings"
 	"time"
 
 	"gopkg.in/yaml.v3"
@@ -12,7 +13,12 @@ import (
 type Config struct {
 	Server   ServerConfig   `yaml:"server"`
 	Search   SearchConfig   `yaml:"search"`
+	Logging  LoggingConfig  `yaml:"logging"`
 	Security SecurityConfig `yaml:"security"`
+}
+
+type LoggingConfig struct {
+	Level string `yaml:"level"`
 }
 
 type ServerConfig struct {
@@ -70,6 +76,9 @@ func Load(path string) (Config, error) {
 	if err := yaml.Unmarshal(data, &cfg); err != nil {
 		return Config{}, err
 	}
+	if level := os.Getenv("LOGSEARCH_LOG_LEVEL"); level != "" {
+		cfg.Logging.Level = level
+	}
 	cfg.defaults()
 	if err := cfg.validate(); err != nil {
 		return Config{}, err
@@ -81,6 +90,10 @@ func Load(path string) (Config, error) {
 }
 
 func (c *Config) defaults() {
+	c.Logging.Level = strings.ToUpper(strings.TrimSpace(c.Logging.Level))
+	if c.Logging.Level == "" {
+		c.Logging.Level = "INFO"
+	}
 	if c.Server.Listen == "" {
 		c.Server.Listen = ":9000"
 	}
@@ -129,6 +142,9 @@ func (c *Config) defaults() {
 }
 
 func (c Config) validate() error {
+	if c.Logging.Level != "INFO" && c.Logging.Level != "DEBUG" {
+		return fmt.Errorf("logging.level must be INFO or DEBUG")
+	}
 	if len(c.Search.Roots) == 0 {
 		return fmt.Errorf("search.roots is required")
 	}
@@ -157,6 +173,10 @@ func (c Config) validate() error {
 		}
 	}
 	return nil
+}
+
+func (c Config) DebugEnabled() bool {
+	return c.Logging.Level == "DEBUG"
 }
 
 func (c Config) DefaultTimeout() time.Duration {

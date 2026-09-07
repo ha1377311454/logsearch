@@ -31,6 +31,7 @@ func main() {
 		MaxLineBytes:      cfg.Search.MaxLineBytes,
 		MaxMultilineBytes: cfg.Search.MaxMultilineBytes,
 		MaxMultilineLines: cfg.Search.MaxMultilineLines,
+		Debug:             cfg.DebugEnabled(),
 	})
 	if err != nil {
 		log.Fatalf("initialize search service: %v", err)

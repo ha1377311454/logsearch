@@ -231,6 +231,9 @@ func TestScanFileMergesMultilineBeforeKeywordMatching(t *testing.T) {
 		MaxMultilineLines: 1000,
 	}}
 	file := File{Path: path, OpenPath: path, multilineStart: regexp.MustCompile(`^[0-9]{4}-[0-9]{2}-[0-9]{2} `)}
+	if mode := scanMode(file, Request{}, 2); mode != "multiline_offset_fast" {
+		t.Fatalf("expected multiline offset fast path, got %q", mode)
+	}
 	matches, _, _, err := service.scanFile(context.Background(), file, Request{Mode: KeywordAll}, []string{"request-123", "payment unavailable"}, 10, 1<<20)
 	if err != nil {
 		t.Fatal(err)
@@ -244,6 +247,61 @@ func TestScanFileMergesMultilineBeforeKeywordMatching(t *testing.T) {
 	}
 	if matches[0].LineNumber != 1 {
 		t.Fatalf("expected merged record to start at physical line 1, got %d", matches[0].LineNumber)
+	}
+}
+
+func TestMultilineOffsetFastPathRespectsRecordLineLimit(t *testing.T) {
+	root := t.TempDir()
+	path := filepath.Join(root, "application.log")
+	content := "2026-09-04 10:00:00 ERROR request-123\npayment unavailable\n"
+	if err := os.WriteFile(path, []byte(content), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	service := &Service{opts: Options{MaxLineBytes: 1 << 20, MaxMultilineLines: 1}}
+	file := File{Path: path, OpenPath: path, multilineStart: regexp.MustCompile(`^[0-9]{4}-`)}
+	matches, _, _, err := service.scanFile(context.Background(), file, Request{Mode: KeywordAll}, []string{"request-123", "payment unavailable"}, 10, 1<<20)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(matches) != 0 {
+		t.Fatalf("keywords split across records must not match, got %#v", matches)
+	}
+}
+
+func TestMultilineOffsetFastPathMatchesAcrossOversizedPhysicalLineFragments(t *testing.T) {
+	root := t.TempDir()
+	path := filepath.Join(root, "application.log")
+	content := "2026-09-04 10:00:00 ERROR " + strings.Repeat("x", 64*1024-4) + "request-123\npayment unavailable\n"
+	if err := os.WriteFile(path, []byte(content), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	service := &Service{opts: Options{MaxLineBytes: 1 << 20, MaxMultilineBytes: 4 << 20, MaxMultilineLines: 1000}}
+	file := File{Path: path, OpenPath: path, multilineStart: regexp.MustCompile(`^[0-9]{4}-`)}
+	matches, _, _, err := service.scanFile(context.Background(), file, Request{Mode: KeywordAll}, []string{"request-123", "payment unavailable"}, 10, 2<<20)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(matches) != 1 || !strings.Contains(matches[0].Text, "request-123\npayment unavailable") {
+		t.Fatalf("expected oversized multiline match, got %#v", matches)
+	}
+}
+
+func TestMultilineOffsetFastPathAppliesTimeRangeAfterMaterialization(t *testing.T) {
+	root := t.TempDir()
+	path := filepath.Join(root, "application.log")
+	content := "2026-09-04T10:00:00Z ERROR request-123\nstack\n2026-09-04T11:00:00Z ERROR request-123\nstack\n"
+	if err := os.WriteFile(path, []byte(content), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	service := &Service{opts: Options{MaxLineBytes: 1 << 20, MaxMultilineBytes: 4 << 20, MaxMultilineLines: 1000}}
+	file := File{Path: path, OpenPath: path, multilineStart: regexp.MustCompile(`^[0-9]{4}-`)}
+	start := time.Date(2026, 9, 4, 10, 30, 0, 0, time.UTC)
+	matches, _, _, err := service.scanFile(context.Background(), file, Request{Mode: KeywordAll, StartTime: start}, []string{"request-123"}, 10, 1<<20)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(matches) != 1 || !strings.HasPrefix(matches[0].Text, "2026-09-04T11:00:00Z") {
+		t.Fatalf("expected only record inside time range, got %#v", matches)
 	}
 }
 

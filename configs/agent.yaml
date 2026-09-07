@@ -3,6 +3,10 @@ server:
   # Kubernetes 中由 NODE_NAME 环境变量覆盖；本地为空时使用主机名。
   node_name: ""
 
+logging:
+  # 日志级别：INFO 只输出常规运行日志；DEBUG 额外输出查询各阶段和每个文件的耗时明细。
+  level: INFO
+
 search:
   roots:
     - /host/var/log/pods
