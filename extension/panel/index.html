@@ -111,6 +111,14 @@
           </label>
         </section>
       </div>
+      <section class="settings-section copy-rule-section">
+        <div class="section-heading">
+          <div><strong>提取复制规则</strong><span>匹配日志后复制第一个捕获组；没有捕获组时复制完整匹配</span></div>
+          <button id="addCopyRule" type="button">＋ 添加规则</button>
+        </div>
+        <div id="copyRuleEditor" class="copy-rule-editor"></div>
+        <span class="field-help">正则表达式不需要填写两侧的 /。按钮会显示在每条日志原“复制”按钮旁，仅在规则匹配时复制。</span>
+      </section>
       <section class="config-transfer">
         <div><strong>备份配置</strong><span>包含全部环境、Token 和收藏。</span></div>
         <div><button id="importConfig" type="button">导入 JSON</button><button id="exportConfig" type="button">导出 JSON</button></div>

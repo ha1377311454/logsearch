@@ -1,6 +1,7 @@
 let networkRequests = [];
 let filterFavorites = [];
 let keywordFavorites = [];
+let customCopyRules = [];
 let requestRefreshTimer;
 let requestClearTime = 0;
 let selectedRequestKey = "";
@@ -24,7 +25,13 @@ const SETTINGS_DEFAULTS = {
   concurrency: 5,
   requestIdHeaders: ["x-request-id", "x-trace-id", "trace-id", "traceparent"],
   requestFilterFavorites: [],
-  keywordFavorites: []
+  keywordFavorites: [],
+  customCopyRules: []
+};
+
+const DEFAULT_COPY_RULE = {
+  name: "复制 CK SQL",
+  pattern: "to CK_SQL:\\s*([^\\r\\n]*?)(?:\\s+elapsed\\s+\\d+\\s+ms)?(?:\\r?\\n|$)"
 };
 
 const ENVIRONMENT_DEFAULTS = {
@@ -48,6 +55,7 @@ $("#settings").addEventListener("click", openSettings);
 $("#closeSettings").addEventListener("click", closeSettings);
 $("#cancelSettings").addEventListener("click", closeSettings);
 $("#saveSettings").addEventListener("click", saveSettings);
+$("#addCopyRule").addEventListener("click", () => appendCopyRuleEditor());
 $("#quickNewEnvironment").addEventListener("click", () => openEnvironmentDialog(false));
 $("#newEnvironment").addEventListener("click", () => openEnvironmentDialog(true));
 $("#deleteEnvironment").addEventListener("click", deleteEnvironment);
@@ -113,6 +121,7 @@ async function loadFilterFavorites() {
   const stored = await chrome.storage.local.get(SETTINGS_DEFAULTS);
   filterFavorites = Array.isArray(stored.requestFilterFavorites) ? stored.requestFilterFavorites : [];
   keywordFavorites = Array.isArray(stored.keywordFavorites) ? stored.keywordFavorites : [];
+  customCopyRules = normalizeCopyRules(stored.customCopyRules);
   renderFilterFavorites();
   renderKeywordFavorites();
 }
@@ -122,6 +131,7 @@ async function openSettings() {
   const config = currentEnvironment();
   renderEnvironmentSelectors();
   fillSettingsForm(config);
+  renderCopyRuleEditor();
   $("#settingsStatus").textContent = "";
   $("#settingsStatus").classList.remove("danger");
   $("#settingsDialog").showModal();
@@ -133,6 +143,79 @@ function fillSettingsForm(config) {
   $("#settingsTimeout").value = config.timeoutSeconds;
   $("#settingsConcurrency").value = config.concurrency;
   $("#settingsHeaders").value = config.requestIdHeaders.join(", ");
+}
+
+function normalizeCopyRules(rules) {
+  return Array.isArray(rules)
+    ? rules.filter((rule) => rule?.name && rule?.pattern).map((rule) => ({
+        id: rule.id || newFavoriteId(),
+        name: String(rule.name),
+        pattern: String(rule.pattern)
+      }))
+    : [];
+}
+
+function renderCopyRuleEditor() {
+  const editor = $("#copyRuleEditor");
+  editor.replaceChildren();
+  if (!customCopyRules.length) {
+    const empty = document.createElement("div");
+    empty.className = "copy-rule-empty";
+    empty.textContent = "暂无规则。可添加自定义规则，或使用下方示例快速创建 CK SQL 提取按钮。";
+    const example = document.createElement("button");
+    example.type = "button";
+    example.textContent = "使用 CK SQL 示例";
+    example.addEventListener("click", () => appendCopyRuleEditor(DEFAULT_COPY_RULE));
+    empty.append(example);
+    editor.append(empty);
+    return;
+  }
+  customCopyRules.forEach((rule) => appendCopyRuleEditor(rule));
+}
+
+function appendCopyRuleEditor(rule = { id: newFavoriteId(), name: "", pattern: "" }) {
+  const empty = $("#copyRuleEditor .copy-rule-empty");
+  if (empty) empty.remove();
+  const row = document.createElement("div");
+  row.className = "copy-rule-row";
+  row.dataset.id = rule.id || newFavoriteId();
+  const name = document.createElement("input");
+  name.className = "copy-rule-name";
+  name.maxLength = 30;
+  name.placeholder = "按钮名称，例如：复制 CK SQL";
+  name.value = rule.name || "";
+  name.setAttribute("aria-label", "复制按钮名称");
+  const pattern = document.createElement("input");
+  pattern.className = "copy-rule-pattern";
+  pattern.placeholder = "正则表达式，第一个捕获组为复制内容";
+  pattern.value = rule.pattern || "";
+  pattern.spellcheck = false;
+  pattern.setAttribute("aria-label", "提取正则表达式");
+  const remove = document.createElement("button");
+  remove.type = "button";
+  remove.className = "danger-button";
+  remove.textContent = "删除";
+  remove.addEventListener("click", () => row.remove());
+  row.append(name, pattern, remove);
+  $("#copyRuleEditor").append(row);
+  if (!rule.name) name.focus();
+}
+
+function readCopyRules() {
+  const rules = [];
+  for (const row of document.querySelectorAll(".copy-rule-row")) {
+    const name = row.querySelector(".copy-rule-name").value.trim();
+    const pattern = row.querySelector(".copy-rule-pattern").value.trim();
+    if (!name && !pattern) continue;
+    if (!name || !pattern) throw new Error("提取复制规则的按钮名称和正则表达式都不能为空");
+    try {
+      new RegExp(pattern);
+    } catch (error) {
+      throw new Error(`“${name}”的正则表达式无效：${error.message}`);
+    }
+    rules.push({ id: row.dataset.id || newFavoriteId(), name, pattern });
+  }
+  return rules;
 }
 
 function closeSettings() {
@@ -163,6 +246,13 @@ async function saveSettings() {
     $("#settingsStatus").classList.add("danger");
     return;
   }
+  try {
+    customCopyRules = readCopyRules();
+  } catch (error) {
+    $("#settingsStatus").textContent = error.message;
+    $("#settingsStatus").classList.add("danger");
+    return;
+  }
   const updated = {
     ...currentEnvironment(),
     nodes,
@@ -173,6 +263,7 @@ async function saveSettings() {
   };
   environments = environments.map((item) => item.id === activeEnvironmentId ? updated : item);
   await persistEnvironments();
+  await chrome.storage.local.set({ customCopyRules });
   $("#settingsStatus").classList.remove("danger");
   $("#settingsStatus").textContent = "已保存";
   setTimeout(closeSettings, 350);
@@ -320,6 +411,7 @@ async function importConfig(event) {
     await loadEnvironments(true);
     fillSettingsForm(currentEnvironment());
     await loadFilterFavorites();
+    renderCopyRuleEditor();
     $("#settingsStatus").textContent = "配置已导入";
     $("#settingsStatus").classList.remove("danger");
   } catch (error) {
@@ -829,19 +921,52 @@ function renderMatch(match, highlightTerms = []) {
   const lines = [...(match.before || []), match.text, ...(match.after || [])];
   const logText = lines.join("\n");
   appendHighlightedText(pre, logText, highlightTerms);
+  const copyActions = document.createElement("div");
+  copyActions.className = "copy-actions";
   const copy = document.createElement("button");
   copy.className = "copy";
   copy.textContent = "复制";
   copy.addEventListener("click", async () => {
     try {
       await navigator.clipboard.writeText(logText);
-      showCopyStatus(copy, "✓ 已复制", false);
+      showCopyStatus(copy, "✓ 已复制", false, "复制");
     } catch {
-      showCopyStatus(copy, "复制失败", true);
+      showCopyStatus(copy, "复制失败", true, "复制");
     }
   });
-  article.append(meta, copy, pre);
+  copyActions.append(copy);
+  for (const rule of customCopyRules) {
+    const customCopy = document.createElement("button");
+    customCopy.className = "copy custom-copy";
+    customCopy.textContent = rule.name;
+    customCopy.title = `按“${rule.name}”规则提取并复制`;
+    customCopy.addEventListener("click", async () => {
+      const extracted = extractCopyText(logText, rule.pattern);
+      if (extracted === null) {
+        showCopyStatus(customCopy, "未匹配", true, rule.name);
+        return;
+      }
+      try {
+        await navigator.clipboard.writeText(extracted);
+        showCopyStatus(customCopy, "✓ 已复制", false, rule.name);
+      } catch {
+        showCopyStatus(customCopy, "复制失败", true, rule.name);
+      }
+    });
+    copyActions.append(customCopy);
+  }
+  article.append(meta, copyActions, pre);
   return article;
+}
+
+function extractCopyText(text, pattern) {
+  try {
+    const match = text.match(new RegExp(pattern));
+    if (!match) return null;
+    return (match[1] ?? match[0]).trim();
+  } catch {
+    return null;
+  }
 }
 
 function appendHighlightedText(container, text, terms) {
@@ -862,13 +987,13 @@ function appendHighlightedText(container, text, terms) {
   container.append(document.createTextNode(text.slice(lastIndex)));
 }
 
-function showCopyStatus(button, message, failed) {
+function showCopyStatus(button, message, failed, originalLabel = "复制") {
   clearTimeout(button.copyStatusTimer);
   button.textContent = message;
   button.classList.toggle("copy-failed", failed);
   button.classList.toggle("copy-success", !failed);
   button.copyStatusTimer = setTimeout(() => {
-    button.textContent = "复制";
+    button.textContent = originalLabel;
     button.classList.remove("copy-failed", "copy-success");
   }, 1400);
 }
