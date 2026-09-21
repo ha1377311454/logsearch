@@ -6,6 +6,7 @@ option go_package = "logsearch/api/logsearch/v1;logsearchv1";
 
 service LogSearchService {
   rpc Health(HealthRequest) returns (HealthResponse);
+  rpc GetCapabilities(GetCapabilitiesRequest) returns (GetCapabilitiesResponse);
   rpc ListLogFiles(ListLogFilesRequest) returns (ListLogFilesResponse);
   rpc Search(SearchRequest) returns (SearchResponse);
 }
@@ -15,6 +16,19 @@ message HealthRequest {}
 message HealthResponse {
   string status = 1;
   string node_name = 2;
+}
+
+message GetCapabilitiesRequest {}
+
+message ProcessRuleInfo {
+  string name = 1;
+}
+
+message GetCapabilitiesResponse {
+  string agent_version = 1;
+  int32 protocol_version = 2;
+  repeated string features = 3;
+  repeated ProcessRuleInfo process_rules = 4;
 }
 
 enum KeywordMode {
@@ -29,6 +43,7 @@ message ListLogFilesRequest {
   repeated string containers = 3;
   repeated string file_patterns = 4;
   int32 limit = 5;
+  repeated string process_rules = 6;
 }
 
 message LogFile {
@@ -62,6 +77,7 @@ message SearchRequest {
   int32 timeout_seconds = 12;
   string start_time = 13;
   string end_time = 14;
+  repeated string process_rules = 15;
 }
 
 message LogMatch {

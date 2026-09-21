@@ -2,3 +2,4 @@
 dist/
 *.log
 deploy/logsearch-dev-01.yaml
+/deploy/log-search-deploy.yaml

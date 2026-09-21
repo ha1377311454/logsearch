@@ -35,6 +35,9 @@ const (
 const (
 	// LogSearchServiceHealthProcedure is the fully-qualified name of the LogSearchService's Health RPC.
 	LogSearchServiceHealthProcedure = "/logsearch.v1.LogSearchService/Health"
+	// LogSearchServiceGetCapabilitiesProcedure is the fully-qualified name of the LogSearchService's
+	// GetCapabilities RPC.
+	LogSearchServiceGetCapabilitiesProcedure = "/logsearch.v1.LogSearchService/GetCapabilities"
 	// LogSearchServiceListLogFilesProcedure is the fully-qualified name of the LogSearchService's
 	// ListLogFiles RPC.
 	LogSearchServiceListLogFilesProcedure = "/logsearch.v1.LogSearchService/ListLogFiles"
@@ -45,6 +48,7 @@ const (
 // LogSearchServiceClient is a client for the logsearch.v1.LogSearchService service.
 type LogSearchServiceClient interface {
 	Health(context.Context, *connect.Request[v1.HealthRequest]) (*connect.Response[v1.HealthResponse], error)
+	GetCapabilities(context.Context, *connect.Request[v1.GetCapabilitiesRequest]) (*connect.Response[v1.GetCapabilitiesResponse], error)
 	ListLogFiles(context.Context, *connect.Request[v1.ListLogFilesRequest]) (*connect.Response[v1.ListLogFilesResponse], error)
 	Search(context.Context, *connect.Request[v1.SearchRequest]) (*connect.Response[v1.SearchResponse], error)
 }
@@ -66,6 +70,12 @@ func NewLogSearchServiceClient(httpClient connect.HTTPClient, baseURL string, op
 			connect.WithSchema(logSearchServiceMethods.ByName("Health")),
 			connect.WithClientOptions(opts...),
 		),
+		getCapabilities: connect.NewClient[v1.GetCapabilitiesRequest, v1.GetCapabilitiesResponse](
+			httpClient,
+			baseURL+LogSearchServiceGetCapabilitiesProcedure,
+			connect.WithSchema(logSearchServiceMethods.ByName("GetCapabilities")),
+			connect.WithClientOptions(opts...),
+		),
 		listLogFiles: connect.NewClient[v1.ListLogFilesRequest, v1.ListLogFilesResponse](
 			httpClient,
 			baseURL+LogSearchServiceListLogFilesProcedure,
@@ -83,14 +93,20 @@ func NewLogSearchServiceClient(httpClient connect.HTTPClient, baseURL string, op
 
 // logSearchServiceClient implements LogSearchServiceClient.
 type logSearchServiceClient struct {
-	health       *connect.Client[v1.HealthRequest, v1.HealthResponse]
-	listLogFiles *connect.Client[v1.ListLogFilesRequest, v1.ListLogFilesResponse]
-	search       *connect.Client[v1.SearchRequest, v1.SearchResponse]
+	health          *connect.Client[v1.HealthRequest, v1.HealthResponse]
+	getCapabilities *connect.Client[v1.GetCapabilitiesRequest, v1.GetCapabilitiesResponse]
+	listLogFiles    *connect.Client[v1.ListLogFilesRequest, v1.ListLogFilesResponse]
+	search          *connect.Client[v1.SearchRequest, v1.SearchResponse]
 }
 
 // Health calls logsearch.v1.LogSearchService.Health.
 func (c *logSearchServiceClient) Health(ctx context.Context, req *connect.Request[v1.HealthRequest]) (*connect.Response[v1.HealthResponse], error) {
 	return c.health.CallUnary(ctx, req)
+}
+
+// GetCapabilities calls logsearch.v1.LogSearchService.GetCapabilities.
+func (c *logSearchServiceClient) GetCapabilities(ctx context.Context, req *connect.Request[v1.GetCapabilitiesRequest]) (*connect.Response[v1.GetCapabilitiesResponse], error) {
+	return c.getCapabilities.CallUnary(ctx, req)
 }
 
 // ListLogFiles calls logsearch.v1.LogSearchService.ListLogFiles.
@@ -106,6 +122,7 @@ func (c *logSearchServiceClient) Search(ctx context.Context, req *connect.Reques
 // LogSearchServiceHandler is an implementation of the logsearch.v1.LogSearchService service.
 type LogSearchServiceHandler interface {
 	Health(context.Context, *connect.Request[v1.HealthRequest]) (*connect.Response[v1.HealthResponse], error)
+	GetCapabilities(context.Context, *connect.Request[v1.GetCapabilitiesRequest]) (*connect.Response[v1.GetCapabilitiesResponse], error)
 	ListLogFiles(context.Context, *connect.Request[v1.ListLogFilesRequest]) (*connect.Response[v1.ListLogFilesResponse], error)
 	Search(context.Context, *connect.Request[v1.SearchRequest]) (*connect.Response[v1.SearchResponse], error)
 }
@@ -121,6 +138,12 @@ func NewLogSearchServiceHandler(svc LogSearchServiceHandler, opts ...connect.Han
 		LogSearchServiceHealthProcedure,
 		svc.Health,
 		connect.WithSchema(logSearchServiceMethods.ByName("Health")),
+		connect.WithHandlerOptions(opts...),
+	)
+	logSearchServiceGetCapabilitiesHandler := connect.NewUnaryHandler(
+		LogSearchServiceGetCapabilitiesProcedure,
+		svc.GetCapabilities,
+		connect.WithSchema(logSearchServiceMethods.ByName("GetCapabilities")),
 		connect.WithHandlerOptions(opts...),
 	)
 	logSearchServiceListLogFilesHandler := connect.NewUnaryHandler(
@@ -139,6 +162,8 @@ func NewLogSearchServiceHandler(svc LogSearchServiceHandler, opts ...connect.Han
 		switch r.URL.Path {
 		case LogSearchServiceHealthProcedure:
 			logSearchServiceHealthHandler.ServeHTTP(w, r)
+		case LogSearchServiceGetCapabilitiesProcedure:
+			logSearchServiceGetCapabilitiesHandler.ServeHTTP(w, r)
 		case LogSearchServiceListLogFilesProcedure:
 			logSearchServiceListLogFilesHandler.ServeHTTP(w, r)
 		case LogSearchServiceSearchProcedure:
@@ -154,6 +179,10 @@ type UnimplementedLogSearchServiceHandler struct{}
 
 func (UnimplementedLogSearchServiceHandler) Health(context.Context, *connect.Request[v1.HealthRequest]) (*connect.Response[v1.HealthResponse], error) {
 	return nil, connect.NewError(connect.CodeUnimplemented, errors.New("logsearch.v1.LogSearchService.Health is not implemented"))
+}
+
+func (UnimplementedLogSearchServiceHandler) GetCapabilities(context.Context, *connect.Request[v1.GetCapabilitiesRequest]) (*connect.Response[v1.GetCapabilitiesResponse], error) {
+	return nil, connect.NewError(connect.CodeUnimplemented, errors.New("logsearch.v1.LogSearchService.GetCapabilities is not implemented"))
 }
 
 func (UnimplementedLogSearchServiceHandler) ListLogFiles(context.Context, *connect.Request[v1.ListLogFilesRequest]) (*connect.Response[v1.ListLogFilesResponse], error) {

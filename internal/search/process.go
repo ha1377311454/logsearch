@@ -100,6 +100,9 @@ func (s *Service) discoverProcessFiles(ctx context.Context, filter Filter) ([]Fi
 			continue
 		}
 		for _, rule := range s.processRules {
+			if !matchesAny(rule.rule.Name, filter.ProcessRules) {
+				continue
+			}
 			if rule.comm != nil && !rule.comm.MatchString(comm) {
 				continue
 			}

@@ -1,7 +1,7 @@
 GO ?= go
 DIST_DIR ?= dist
 VERSION ?=
-LDFLAGS ?= -s -w
+LDFLAGS ?= -s -w $(if $(VERSION),-X logsearch/internal/server.AgentVersion=$(VERSION),)
 
 .PHONY: generate build build-linux build-linux-amd64 build-linux-arm64 package-extension clean tag
 

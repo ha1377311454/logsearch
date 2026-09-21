@@ -42,10 +42,11 @@ type Options struct {
 }
 
 type Filter struct {
-	Namespaces []string
-	Pods       []string
-	Containers []string
-	Patterns   []string
+	Namespaces   []string
+	Pods         []string
+	Containers   []string
+	Patterns     []string
+	ProcessRules []string
 }
 
 type Request struct {
@@ -135,6 +136,14 @@ func (s *Service) ListFiles(ctx context.Context, filter Filter, limit int) ([]Fi
 	}
 	files, truncated, err := s.walk(ctx, filter, limit, 0)
 	return files, truncated, err
+}
+
+func (s *Service) ProcessRuleNames() []string {
+	names := make([]string, 0, len(s.processRules))
+	for _, rule := range s.processRules {
+		names = append(names, rule.rule.Name)
+	}
+	return names
 }
 
 func (s *Service) Search(ctx context.Context, req Request) (Result, error) {
@@ -257,6 +266,9 @@ func (s *Service) Search(ctx context.Context, req Request) (Result, error) {
 func (s *Service) walk(ctx context.Context, filter Filter, limit int, queryID uint64) ([]File, bool, error) {
 	files := make([]File, 0, limit)
 	for _, root := range s.roots {
+		if len(filter.ProcessRules) > 0 {
+			break
+		}
 		rootStarted := time.Now()
 		before := len(files)
 		err := filepath.WalkDir(root, func(path string, entry fs.DirEntry, walkErr error) error {
@@ -1050,7 +1062,8 @@ func matchesFilter(file File, filter Filter) bool {
 	return matchesAny(file.Namespace, filter.Namespaces) &&
 		matchesAny(file.Pod, filter.Pods) &&
 		matchesAny(file.Container, filter.Containers) &&
-		matchesPattern(file.Path, filter.Patterns)
+		matchesPattern(file.Path, filter.Patterns) &&
+		(file.SourceType != "process" || matchesAny(file.Rule, filter.ProcessRules))
 }
 
 func matchesAny(value string, filters []string) bool {

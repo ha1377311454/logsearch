@@ -17,6 +17,8 @@ import (
 	"logsearch/internal/search"
 )
 
+var AgentVersion = "dev"
+
 type Service struct {
 	logsearchv1connect.UnimplementedLogSearchServiceHandler
 	nodeName          string
@@ -43,6 +45,20 @@ func New(cfg config.Config, searchService *search.Service) *Service {
 
 func (s *Service) Health(_ context.Context, _ *connect.Request[logsearchv1.HealthRequest]) (*connect.Response[logsearchv1.HealthResponse], error) {
 	return connect.NewResponse(&logsearchv1.HealthResponse{Status: "ok", NodeName: s.nodeName}), nil
+}
+
+func (s *Service) GetCapabilities(_ context.Context, _ *connect.Request[logsearchv1.GetCapabilitiesRequest]) (*connect.Response[logsearchv1.GetCapabilitiesResponse], error) {
+	names := s.search.ProcessRuleNames()
+	rules := make([]*logsearchv1.ProcessRuleInfo, 0, len(names))
+	for _, name := range names {
+		rules = append(rules, &logsearchv1.ProcessRuleInfo{Name: name})
+	}
+	return connect.NewResponse(&logsearchv1.GetCapabilitiesResponse{
+		AgentVersion:    AgentVersion,
+		ProtocolVersion: 2,
+		Features:        []string{"process_rule_filter"},
+		ProcessRules:    rules,
+	}), nil
 }
 
 func (s *Service) ListLogFiles(ctx context.Context, req *connect.Request[logsearchv1.ListLogFilesRequest]) (*connect.Response[logsearchv1.ListLogFilesResponse], error) {
@@ -159,10 +175,11 @@ type filterMessage interface {
 	GetPods() []string
 	GetContainers() []string
 	GetFilePatterns() []string
+	GetProcessRules() []string
 }
 
 func toFilter(message filterMessage) search.Filter {
-	return search.Filter{Namespaces: message.GetNamespaces(), Pods: message.GetPods(), Containers: message.GetContainers(), Patterns: message.GetFilePatterns()}
+	return search.Filter{Namespaces: message.GetNamespaces(), Pods: message.GetPods(), Containers: message.GetContainers(), Patterns: message.GetFilePatterns(), ProcessRules: message.GetProcessRules()}
 }
 
 func keywordMode(mode logsearchv1.KeywordMode) search.KeywordMode {

@@ -392,3 +392,20 @@ func TestFilesForProcessFindsRecentRotatedLogs(t *testing.T) {
 		t.Fatalf("unexpected process metadata: %#v", files[0])
 	}
 }
+
+func TestProcessRuleNamesAndFilter(t *testing.T) {
+	service := &Service{processRules: []compiledProcessRule{
+		{rule: ProcessLogRule{Name: "current"}},
+		{rule: ProcessLogRule{Name: "rotated"}},
+	}}
+	if got := service.ProcessRuleNames(); len(got) != 2 || got[0] != "current" || got[1] != "rotated" {
+		t.Fatalf("unexpected process rule names: %#v", got)
+	}
+	filter := Filter{ProcessRules: []string{"current"}}
+	if !matchesFilter(File{SourceType: "process", Rule: "current"}, filter) {
+		t.Fatal("expected selected process rule to match")
+	}
+	if matchesFilter(File{SourceType: "process", Rule: "rotated"}, filter) {
+		t.Fatal("did not expect unselected process rule to match")
+	}
+}

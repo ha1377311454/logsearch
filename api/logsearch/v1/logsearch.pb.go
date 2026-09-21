@@ -158,6 +158,154 @@ func (x *HealthResponse) GetNodeName() string {
 	return ""
 }
 
+type GetCapabilitiesRequest struct {
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *GetCapabilitiesRequest) Reset() {
+	*x = GetCapabilitiesRequest{}
+	mi := &file_api_logsearch_v1_logsearch_proto_msgTypes[2]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *GetCapabilitiesRequest) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*GetCapabilitiesRequest) ProtoMessage() {}
+
+func (x *GetCapabilitiesRequest) ProtoReflect() protoreflect.Message {
+	mi := &file_api_logsearch_v1_logsearch_proto_msgTypes[2]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use GetCapabilitiesRequest.ProtoReflect.Descriptor instead.
+func (*GetCapabilitiesRequest) Descriptor() ([]byte, []int) {
+	return file_api_logsearch_v1_logsearch_proto_rawDescGZIP(), []int{2}
+}
+
+type ProcessRuleInfo struct {
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	Name          string                 `protobuf:"bytes,1,opt,name=name,proto3" json:"name,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *ProcessRuleInfo) Reset() {
+	*x = ProcessRuleInfo{}
+	mi := &file_api_logsearch_v1_logsearch_proto_msgTypes[3]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *ProcessRuleInfo) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*ProcessRuleInfo) ProtoMessage() {}
+
+func (x *ProcessRuleInfo) ProtoReflect() protoreflect.Message {
+	mi := &file_api_logsearch_v1_logsearch_proto_msgTypes[3]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use ProcessRuleInfo.ProtoReflect.Descriptor instead.
+func (*ProcessRuleInfo) Descriptor() ([]byte, []int) {
+	return file_api_logsearch_v1_logsearch_proto_rawDescGZIP(), []int{3}
+}
+
+func (x *ProcessRuleInfo) GetName() string {
+	if x != nil {
+		return x.Name
+	}
+	return ""
+}
+
+type GetCapabilitiesResponse struct {
+	state           protoimpl.MessageState `protogen:"open.v1"`
+	AgentVersion    string                 `protobuf:"bytes,1,opt,name=agent_version,json=agentVersion,proto3" json:"agent_version,omitempty"`
+	ProtocolVersion int32                  `protobuf:"varint,2,opt,name=protocol_version,json=protocolVersion,proto3" json:"protocol_version,omitempty"`
+	Features        []string               `protobuf:"bytes,3,rep,name=features,proto3" json:"features,omitempty"`
+	ProcessRules    []*ProcessRuleInfo     `protobuf:"bytes,4,rep,name=process_rules,json=processRules,proto3" json:"process_rules,omitempty"`
+	unknownFields   protoimpl.UnknownFields
+	sizeCache       protoimpl.SizeCache
+}
+
+func (x *GetCapabilitiesResponse) Reset() {
+	*x = GetCapabilitiesResponse{}
+	mi := &file_api_logsearch_v1_logsearch_proto_msgTypes[4]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *GetCapabilitiesResponse) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*GetCapabilitiesResponse) ProtoMessage() {}
+
+func (x *GetCapabilitiesResponse) ProtoReflect() protoreflect.Message {
+	mi := &file_api_logsearch_v1_logsearch_proto_msgTypes[4]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use GetCapabilitiesResponse.ProtoReflect.Descriptor instead.
+func (*GetCapabilitiesResponse) Descriptor() ([]byte, []int) {
+	return file_api_logsearch_v1_logsearch_proto_rawDescGZIP(), []int{4}
+}
+
+func (x *GetCapabilitiesResponse) GetAgentVersion() string {
+	if x != nil {
+		return x.AgentVersion
+	}
+	return ""
+}
+
+func (x *GetCapabilitiesResponse) GetProtocolVersion() int32 {
+	if x != nil {
+		return x.ProtocolVersion
+	}
+	return 0
+}
+
+func (x *GetCapabilitiesResponse) GetFeatures() []string {
+	if x != nil {
+		return x.Features
+	}
+	return nil
+}
+
+func (x *GetCapabilitiesResponse) GetProcessRules() []*ProcessRuleInfo {
+	if x != nil {
+		return x.ProcessRules
+	}
+	return nil
+}
+
 type ListLogFilesRequest struct {
 	state         protoimpl.MessageState `protogen:"open.v1"`
 	Namespaces    []string               `protobuf:"bytes,1,rep,name=namespaces,proto3" json:"namespaces,omitempty"`
@@ -165,13 +313,14 @@ type ListLogFilesRequest struct {
 	Containers    []string               `protobuf:"bytes,3,rep,name=containers,proto3" json:"containers,omitempty"`
 	FilePatterns  []string               `protobuf:"bytes,4,rep,name=file_patterns,json=filePatterns,proto3" json:"file_patterns,omitempty"`
 	Limit         int32                  `protobuf:"varint,5,opt,name=limit,proto3" json:"limit,omitempty"`
+	ProcessRules  []string               `protobuf:"bytes,6,rep,name=process_rules,json=processRules,proto3" json:"process_rules,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }
 
 func (x *ListLogFilesRequest) Reset() {
 	*x = ListLogFilesRequest{}
-	mi := &file_api_logsearch_v1_logsearch_proto_msgTypes[2]
+	mi := &file_api_logsearch_v1_logsearch_proto_msgTypes[5]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -183,7 +332,7 @@ func (x *ListLogFilesRequest) String() string {
 func (*ListLogFilesRequest) ProtoMessage() {}
 
 func (x *ListLogFilesRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_api_logsearch_v1_logsearch_proto_msgTypes[2]
+	mi := &file_api_logsearch_v1_logsearch_proto_msgTypes[5]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -196,7 +345,7 @@ func (x *ListLogFilesRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use ListLogFilesRequest.ProtoReflect.Descriptor instead.
 func (*ListLogFilesRequest) Descriptor() ([]byte, []int) {
-	return file_api_logsearch_v1_logsearch_proto_rawDescGZIP(), []int{2}
+	return file_api_logsearch_v1_logsearch_proto_rawDescGZIP(), []int{5}
 }
 
 func (x *ListLogFilesRequest) GetNamespaces() []string {
@@ -234,6 +383,13 @@ func (x *ListLogFilesRequest) GetLimit() int32 {
 	return 0
 }
 
+func (x *ListLogFilesRequest) GetProcessRules() []string {
+	if x != nil {
+		return x.ProcessRules
+	}
+	return nil
+}
+
 type LogFile struct {
 	state         protoimpl.MessageState `protogen:"open.v1"`
 	Namespace     string                 `protobuf:"bytes,1,opt,name=namespace,proto3" json:"namespace,omitempty"`
@@ -250,7 +406,7 @@ type LogFile struct {
 
 func (x *LogFile) Reset() {
 	*x = LogFile{}
-	mi := &file_api_logsearch_v1_logsearch_proto_msgTypes[3]
+	mi := &file_api_logsearch_v1_logsearch_proto_msgTypes[6]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -262,7 +418,7 @@ func (x *LogFile) String() string {
 func (*LogFile) ProtoMessage() {}
 
 func (x *LogFile) ProtoReflect() protoreflect.Message {
-	mi := &file_api_logsearch_v1_logsearch_proto_msgTypes[3]
+	mi := &file_api_logsearch_v1_logsearch_proto_msgTypes[6]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -275,7 +431,7 @@ func (x *LogFile) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use LogFile.ProtoReflect.Descriptor instead.
 func (*LogFile) Descriptor() ([]byte, []int) {
-	return file_api_logsearch_v1_logsearch_proto_rawDescGZIP(), []int{3}
+	return file_api_logsearch_v1_logsearch_proto_rawDescGZIP(), []int{6}
 }
 
 func (x *LogFile) GetNamespace() string {
@@ -344,7 +500,7 @@ type ListLogFilesResponse struct {
 
 func (x *ListLogFilesResponse) Reset() {
 	*x = ListLogFilesResponse{}
-	mi := &file_api_logsearch_v1_logsearch_proto_msgTypes[4]
+	mi := &file_api_logsearch_v1_logsearch_proto_msgTypes[7]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -356,7 +512,7 @@ func (x *ListLogFilesResponse) String() string {
 func (*ListLogFilesResponse) ProtoMessage() {}
 
 func (x *ListLogFilesResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_api_logsearch_v1_logsearch_proto_msgTypes[4]
+	mi := &file_api_logsearch_v1_logsearch_proto_msgTypes[7]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -369,7 +525,7 @@ func (x *ListLogFilesResponse) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use ListLogFilesResponse.ProtoReflect.Descriptor instead.
 func (*ListLogFilesResponse) Descriptor() ([]byte, []int) {
-	return file_api_logsearch_v1_logsearch_proto_rawDescGZIP(), []int{4}
+	return file_api_logsearch_v1_logsearch_proto_rawDescGZIP(), []int{7}
 }
 
 func (x *ListLogFilesResponse) GetFiles() []*LogFile {
@@ -402,13 +558,14 @@ type SearchRequest struct {
 	TimeoutSeconds int32                  `protobuf:"varint,12,opt,name=timeout_seconds,json=timeoutSeconds,proto3" json:"timeout_seconds,omitempty"`
 	StartTime      string                 `protobuf:"bytes,13,opt,name=start_time,json=startTime,proto3" json:"start_time,omitempty"`
 	EndTime        string                 `protobuf:"bytes,14,opt,name=end_time,json=endTime,proto3" json:"end_time,omitempty"`
+	ProcessRules   []string               `protobuf:"bytes,15,rep,name=process_rules,json=processRules,proto3" json:"process_rules,omitempty"`
 	unknownFields  protoimpl.UnknownFields
 	sizeCache      protoimpl.SizeCache
 }
 
 func (x *SearchRequest) Reset() {
 	*x = SearchRequest{}
-	mi := &file_api_logsearch_v1_logsearch_proto_msgTypes[5]
+	mi := &file_api_logsearch_v1_logsearch_proto_msgTypes[8]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -420,7 +577,7 @@ func (x *SearchRequest) String() string {
 func (*SearchRequest) ProtoMessage() {}
 
 func (x *SearchRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_api_logsearch_v1_logsearch_proto_msgTypes[5]
+	mi := &file_api_logsearch_v1_logsearch_proto_msgTypes[8]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -433,7 +590,7 @@ func (x *SearchRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use SearchRequest.ProtoReflect.Descriptor instead.
 func (*SearchRequest) Descriptor() ([]byte, []int) {
-	return file_api_logsearch_v1_logsearch_proto_rawDescGZIP(), []int{5}
+	return file_api_logsearch_v1_logsearch_proto_rawDescGZIP(), []int{8}
 }
 
 func (x *SearchRequest) GetKeywords() []string {
@@ -534,6 +691,13 @@ func (x *SearchRequest) GetEndTime() string {
 	return ""
 }
 
+func (x *SearchRequest) GetProcessRules() []string {
+	if x != nil {
+		return x.ProcessRules
+	}
+	return nil
+}
+
 type LogMatch struct {
 	state         protoimpl.MessageState `protogen:"open.v1"`
 	NodeName      string                 `protobuf:"bytes,1,opt,name=node_name,json=nodeName,proto3" json:"node_name,omitempty"`
@@ -554,7 +718,7 @@ type LogMatch struct {
 
 func (x *LogMatch) Reset() {
 	*x = LogMatch{}
-	mi := &file_api_logsearch_v1_logsearch_proto_msgTypes[6]
+	mi := &file_api_logsearch_v1_logsearch_proto_msgTypes[9]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -566,7 +730,7 @@ func (x *LogMatch) String() string {
 func (*LogMatch) ProtoMessage() {}
 
 func (x *LogMatch) ProtoReflect() protoreflect.Message {
-	mi := &file_api_logsearch_v1_logsearch_proto_msgTypes[6]
+	mi := &file_api_logsearch_v1_logsearch_proto_msgTypes[9]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -579,7 +743,7 @@ func (x *LogMatch) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use LogMatch.ProtoReflect.Descriptor instead.
 func (*LogMatch) Descriptor() ([]byte, []int) {
-	return file_api_logsearch_v1_logsearch_proto_rawDescGZIP(), []int{6}
+	return file_api_logsearch_v1_logsearch_proto_rawDescGZIP(), []int{9}
 }
 
 func (x *LogMatch) GetNodeName() string {
@@ -681,7 +845,7 @@ type SearchResponse struct {
 
 func (x *SearchResponse) Reset() {
 	*x = SearchResponse{}
-	mi := &file_api_logsearch_v1_logsearch_proto_msgTypes[7]
+	mi := &file_api_logsearch_v1_logsearch_proto_msgTypes[10]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -693,7 +857,7 @@ func (x *SearchResponse) String() string {
 func (*SearchResponse) ProtoMessage() {}
 
 func (x *SearchResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_api_logsearch_v1_logsearch_proto_msgTypes[7]
+	mi := &file_api_logsearch_v1_logsearch_proto_msgTypes[10]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -706,7 +870,7 @@ func (x *SearchResponse) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use SearchResponse.ProtoReflect.Descriptor instead.
 func (*SearchResponse) Descriptor() ([]byte, []int) {
-	return file_api_logsearch_v1_logsearch_proto_rawDescGZIP(), []int{7}
+	return file_api_logsearch_v1_logsearch_proto_rawDescGZIP(), []int{10}
 }
 
 func (x *SearchResponse) GetMatches() []*LogMatch {
@@ -766,7 +930,15 @@ const file_api_logsearch_v1_logsearch_proto_rawDesc = "" +
 	"\rHealthRequest\"E\n" +
 	"\x0eHealthResponse\x12\x16\n" +
 	"\x06status\x18\x01 \x01(\tR\x06status\x12\x1b\n" +
-	"\tnode_name\x18\x02 \x01(\tR\bnodeName\"\xa4\x01\n" +
+	"\tnode_name\x18\x02 \x01(\tR\bnodeName\"\x18\n" +
+	"\x16GetCapabilitiesRequest\"%\n" +
+	"\x0fProcessRuleInfo\x12\x12\n" +
+	"\x04name\x18\x01 \x01(\tR\x04name\"\xc9\x01\n" +
+	"\x17GetCapabilitiesResponse\x12#\n" +
+	"\ragent_version\x18\x01 \x01(\tR\fagentVersion\x12)\n" +
+	"\x10protocol_version\x18\x02 \x01(\x05R\x0fprotocolVersion\x12\x1a\n" +
+	"\bfeatures\x18\x03 \x03(\tR\bfeatures\x12B\n" +
+	"\rprocess_rules\x18\x04 \x03(\v2\x1d.logsearch.v1.ProcessRuleInfoR\fprocessRules\"\xc9\x01\n" +
 	"\x13ListLogFilesRequest\x12\x1e\n" +
 	"\n" +
 	"namespaces\x18\x01 \x03(\tR\n" +
@@ -776,7 +948,8 @@ const file_api_logsearch_v1_logsearch_proto_rawDesc = "" +
 	"containers\x18\x03 \x03(\tR\n" +
 	"containers\x12#\n" +
 	"\rfile_patterns\x18\x04 \x03(\tR\ffilePatterns\x12\x14\n" +
-	"\x05limit\x18\x05 \x01(\x05R\x05limit\"\xe2\x01\n" +
+	"\x05limit\x18\x05 \x01(\x05R\x05limit\x12#\n" +
+	"\rprocess_rules\x18\x06 \x03(\tR\fprocessRules\"\xe2\x01\n" +
 	"\aLogFile\x12\x1c\n" +
 	"\tnamespace\x18\x01 \x01(\tR\tnamespace\x12\x10\n" +
 	"\x03pod\x18\x02 \x01(\tR\x03pod\x12\x1c\n" +
@@ -791,7 +964,7 @@ const file_api_logsearch_v1_logsearch_proto_rawDesc = "" +
 	"sourceRule\"a\n" +
 	"\x14ListLogFilesResponse\x12+\n" +
 	"\x05files\x18\x01 \x03(\v2\x15.logsearch.v1.LogFileR\x05files\x12\x1c\n" +
-	"\ttruncated\x18\x02 \x01(\bR\ttruncated\"\xf6\x03\n" +
+	"\ttruncated\x18\x02 \x01(\bR\ttruncated\"\x9b\x04\n" +
 	"\rSearchRequest\x12\x1a\n" +
 	"\bkeywords\x18\x01 \x03(\tR\bkeywords\x12<\n" +
 	"\fkeyword_mode\x18\x02 \x01(\x0e2\x19.logsearch.v1.KeywordModeR\vkeywordMode\x12%\n" +
@@ -813,7 +986,8 @@ const file_api_logsearch_v1_logsearch_proto_rawDesc = "" +
 	"\x0ftimeout_seconds\x18\f \x01(\x05R\x0etimeoutSeconds\x12\x1d\n" +
 	"\n" +
 	"start_time\x18\r \x01(\tR\tstartTime\x12\x19\n" +
-	"\bend_time\x18\x0e \x01(\tR\aendTime\"\xcc\x02\n" +
+	"\bend_time\x18\x0e \x01(\tR\aendTime\x12#\n" +
+	"\rprocess_rules\x18\x0f \x03(\tR\fprocessRules\"\xcc\x02\n" +
 	"\bLogMatch\x12\x1b\n" +
 	"\tnode_name\x18\x01 \x01(\tR\bnodeName\x12\x1c\n" +
 	"\tnamespace\x18\x02 \x01(\tR\tnamespace\x12\x10\n" +
@@ -843,9 +1017,10 @@ const file_api_logsearch_v1_logsearch_proto_rawDesc = "" +
 	"\vKeywordMode\x12\x1c\n" +
 	"\x18KEYWORD_MODE_UNSPECIFIED\x10\x00\x12\x14\n" +
 	"\x10KEYWORD_MODE_ALL\x10\x01\x12\x14\n" +
-	"\x10KEYWORD_MODE_ANY\x10\x022\xf3\x01\n" +
+	"\x10KEYWORD_MODE_ANY\x10\x022\xd3\x02\n" +
 	"\x10LogSearchService\x12C\n" +
-	"\x06Health\x12\x1b.logsearch.v1.HealthRequest\x1a\x1c.logsearch.v1.HealthResponse\x12U\n" +
+	"\x06Health\x12\x1b.logsearch.v1.HealthRequest\x1a\x1c.logsearch.v1.HealthResponse\x12^\n" +
+	"\x0fGetCapabilities\x12$.logsearch.v1.GetCapabilitiesRequest\x1a%.logsearch.v1.GetCapabilitiesResponse\x12U\n" +
 	"\fListLogFiles\x12!.logsearch.v1.ListLogFilesRequest\x1a\".logsearch.v1.ListLogFilesResponse\x12C\n" +
 	"\x06Search\x12\x1b.logsearch.v1.SearchRequest\x1a\x1c.logsearch.v1.SearchResponseB(Z&logsearch/api/logsearch/v1;logsearchv1b\x06proto3"
 
@@ -862,33 +1037,39 @@ func file_api_logsearch_v1_logsearch_proto_rawDescGZIP() []byte {
 }
 
 var file_api_logsearch_v1_logsearch_proto_enumTypes = make([]protoimpl.EnumInfo, 1)
-var file_api_logsearch_v1_logsearch_proto_msgTypes = make([]protoimpl.MessageInfo, 8)
+var file_api_logsearch_v1_logsearch_proto_msgTypes = make([]protoimpl.MessageInfo, 11)
 var file_api_logsearch_v1_logsearch_proto_goTypes = []any{
-	(KeywordMode)(0),             // 0: logsearch.v1.KeywordMode
-	(*HealthRequest)(nil),        // 1: logsearch.v1.HealthRequest
-	(*HealthResponse)(nil),       // 2: logsearch.v1.HealthResponse
-	(*ListLogFilesRequest)(nil),  // 3: logsearch.v1.ListLogFilesRequest
-	(*LogFile)(nil),              // 4: logsearch.v1.LogFile
-	(*ListLogFilesResponse)(nil), // 5: logsearch.v1.ListLogFilesResponse
-	(*SearchRequest)(nil),        // 6: logsearch.v1.SearchRequest
-	(*LogMatch)(nil),             // 7: logsearch.v1.LogMatch
-	(*SearchResponse)(nil),       // 8: logsearch.v1.SearchResponse
+	(KeywordMode)(0),                // 0: logsearch.v1.KeywordMode
+	(*HealthRequest)(nil),           // 1: logsearch.v1.HealthRequest
+	(*HealthResponse)(nil),          // 2: logsearch.v1.HealthResponse
+	(*GetCapabilitiesRequest)(nil),  // 3: logsearch.v1.GetCapabilitiesRequest
+	(*ProcessRuleInfo)(nil),         // 4: logsearch.v1.ProcessRuleInfo
+	(*GetCapabilitiesResponse)(nil), // 5: logsearch.v1.GetCapabilitiesResponse
+	(*ListLogFilesRequest)(nil),     // 6: logsearch.v1.ListLogFilesRequest
+	(*LogFile)(nil),                 // 7: logsearch.v1.LogFile
+	(*ListLogFilesResponse)(nil),    // 8: logsearch.v1.ListLogFilesResponse
+	(*SearchRequest)(nil),           // 9: logsearch.v1.SearchRequest
+	(*LogMatch)(nil),                // 10: logsearch.v1.LogMatch
+	(*SearchResponse)(nil),          // 11: logsearch.v1.SearchResponse
 }
 var file_api_logsearch_v1_logsearch_proto_depIdxs = []int32{
-	4, // 0: logsearch.v1.ListLogFilesResponse.files:type_name -> logsearch.v1.LogFile
-	0, // 1: logsearch.v1.SearchRequest.keyword_mode:type_name -> logsearch.v1.KeywordMode
-	7, // 2: logsearch.v1.SearchResponse.matches:type_name -> logsearch.v1.LogMatch
-	1, // 3: logsearch.v1.LogSearchService.Health:input_type -> logsearch.v1.HealthRequest
-	3, // 4: logsearch.v1.LogSearchService.ListLogFiles:input_type -> logsearch.v1.ListLogFilesRequest
-	6, // 5: logsearch.v1.LogSearchService.Search:input_type -> logsearch.v1.SearchRequest
-	2, // 6: logsearch.v1.LogSearchService.Health:output_type -> logsearch.v1.HealthResponse
-	5, // 7: logsearch.v1.LogSearchService.ListLogFiles:output_type -> logsearch.v1.ListLogFilesResponse
-	8, // 8: logsearch.v1.LogSearchService.Search:output_type -> logsearch.v1.SearchResponse
-	6, // [6:9] is the sub-list for method output_type
-	3, // [3:6] is the sub-list for method input_type
-	3, // [3:3] is the sub-list for extension type_name
-	3, // [3:3] is the sub-list for extension extendee
-	0, // [0:3] is the sub-list for field type_name
+	4,  // 0: logsearch.v1.GetCapabilitiesResponse.process_rules:type_name -> logsearch.v1.ProcessRuleInfo
+	7,  // 1: logsearch.v1.ListLogFilesResponse.files:type_name -> logsearch.v1.LogFile
+	0,  // 2: logsearch.v1.SearchRequest.keyword_mode:type_name -> logsearch.v1.KeywordMode
+	10, // 3: logsearch.v1.SearchResponse.matches:type_name -> logsearch.v1.LogMatch
+	1,  // 4: logsearch.v1.LogSearchService.Health:input_type -> logsearch.v1.HealthRequest
+	3,  // 5: logsearch.v1.LogSearchService.GetCapabilities:input_type -> logsearch.v1.GetCapabilitiesRequest
+	6,  // 6: logsearch.v1.LogSearchService.ListLogFiles:input_type -> logsearch.v1.ListLogFilesRequest
+	9,  // 7: logsearch.v1.LogSearchService.Search:input_type -> logsearch.v1.SearchRequest
+	2,  // 8: logsearch.v1.LogSearchService.Health:output_type -> logsearch.v1.HealthResponse
+	5,  // 9: logsearch.v1.LogSearchService.GetCapabilities:output_type -> logsearch.v1.GetCapabilitiesResponse
+	8,  // 10: logsearch.v1.LogSearchService.ListLogFiles:output_type -> logsearch.v1.ListLogFilesResponse
+	11, // 11: logsearch.v1.LogSearchService.Search:output_type -> logsearch.v1.SearchResponse
+	8,  // [8:12] is the sub-list for method output_type
+	4,  // [4:8] is the sub-list for method input_type
+	4,  // [4:4] is the sub-list for extension type_name
+	4,  // [4:4] is the sub-list for extension extendee
+	0,  // [0:4] is the sub-list for field type_name
 }
 
 func init() { file_api_logsearch_v1_logsearch_proto_init() }
@@ -902,7 +1083,7 @@ func file_api_logsearch_v1_logsearch_proto_init() {
 			GoPackagePath: reflect.TypeOf(x{}).PkgPath(),
 			RawDescriptor: unsafe.Slice(unsafe.StringData(file_api_logsearch_v1_logsearch_proto_rawDesc), len(file_api_logsearch_v1_logsearch_proto_rawDesc)),
 			NumEnums:      1,
-			NumMessages:   8,
+			NumMessages:   11,
 			NumExtensions: 0,
 			NumServices:   1,
 		},
